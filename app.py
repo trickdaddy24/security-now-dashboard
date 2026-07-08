@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,14 +18,19 @@ from grc_downloader.downloader import DownloadManager
 from grc_downloader.client_tokens import claim_token, lookup_token
 from grc_downloader.history import read_batches, read_recent
 from grc_downloader.models import MediaType
+from grc_downloader.library import library_summary, scan_library
 from grc_downloader.parser import fetch_catalog, parse_episode_range
+from grc_downloader.rss import FEED_NAMES, build_feeds, rss_status
+from grc_downloader.search import index_transcripts, search_index_status, search_transcripts
+from grc_downloader.version import get_version
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 
 CONFIG: AppConfig = load_config()
 
-app = FastAPI(title="Security Now Dashboard", version="1.2.0")
+APP_VERSION = get_version()
+app = FastAPI(title="Security Now Dashboard", version=APP_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _ws_clients: set[WebSocket] = set()
@@ -70,6 +75,7 @@ async def index() -> FileResponse:
 @app.get("/api/config")
 async def get_config() -> dict[str, Any]:
     return {
+        "version": APP_VERSION,
         "download_dir": str(CONFIG.download_dir.resolve()),
         "parallel": CONFIG.parallel,
         "skip_existing": CONFIG.skip_existing,
@@ -77,6 +83,8 @@ async def get_config() -> dict[str, Any]:
         "default_media": CONFIG.default_media,
         "min_free_mb": CONFIG.min_free_mb,
         "disk_free_bytes": free_bytes(CONFIG.download_dir),
+        "rss_base_url": CONFIG.rss_base_url,
+        "rss_limit": CONFIG.rss_limit,
     }
 
 
@@ -213,6 +221,113 @@ async def start_download(req: StartRequest) -> dict[str, Any]:
 async def cancel_download() -> dict[str, bool]:
     await get_manager().cancel()
     return {"ok": True}
+
+
+@app.get("/api/library")
+async def library() -> dict[str, Any]:
+    _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    return library_summary(CONFIG.download_dir, latest)
+
+
+@app.get("/api/search")
+async def search(q: str = "", limit: int = 25) -> dict[str, Any]:
+    if not q.strip():
+        return {"ok": False, "error": "Query required", "results": []}
+    results = search_transcripts(
+        CONFIG.download_dir,
+        q,
+        db_path=CONFIG.resolve_search_db(),
+        limit=min(limit, 100),
+    )
+    return {"ok": True, "query": q, "count": len(results), "results": results}
+
+
+@app.post("/api/search/reindex")
+async def reindex_search() -> dict[str, Any]:
+    state = index_transcripts(CONFIG.download_dir, db_path=CONFIG.resolve_search_db())
+    return {"ok": True, **state}
+
+
+@app.get("/api/search/status")
+async def search_status() -> dict[str, Any]:
+    return search_index_status(CONFIG.download_dir)
+
+
+@app.get("/api/rss/status")
+async def get_rss_status() -> dict[str, Any]:
+    return rss_status(CONFIG.download_dir)
+
+
+class RssRebuildRequest(BaseModel):
+    feeds: list[str] | None = None
+
+
+@app.post("/api/library/fill-transcripts")
+async def fill_missing_transcripts() -> dict[str, Any]:
+    _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    summary = library_summary(CONFIG.download_dir, latest)
+    episodes = [
+        item["episode"]
+        for item in summary.get("missing_formats", [])
+        if "transcript_txt" in item.get("missing", [])
+    ]
+    if not episodes:
+        return {"ok": True, "message": "No missing transcripts", "episodes": []}
+    mgr = get_manager()
+    if mgr._running:  # noqa: SLF001
+        return {"ok": False, "error": "A batch is already running"}
+    episodes_meta, _ = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    titles = {e.number: e.title for e in episodes_meta}
+    dates = {e.number: e.date_label for e in episodes_meta}
+    ok, err = await mgr.enqueue(
+        episodes=sorted(set(episodes)),
+        media_types=[MediaType.TRANSCRIPT_TXT],
+        titles=titles,
+        dates=dates,
+    )
+    return {"ok": ok, "error": err or None, "episodes": episodes}
+
+
+@app.post("/api/rss/rebuild")
+async def rebuild_rss(req: RssRebuildRequest | None = None) -> dict[str, Any]:
+    which = set(req.feeds) if req and req.feeds else None
+    base = CONFIG.rss_base_url
+    if not base:
+        base = os.getenv("SN_PUBLIC_URL")
+    state = build_feeds(
+        CONFIG.download_dir,
+        rss_dir=CONFIG.resolve_rss_dir(),
+        base_url=base,
+        desc_limit=CONFIG.rss_limit,
+        which=which,
+    )
+    return {"ok": True, **state}
+
+
+@app.get("/media/{filename}")
+async def serve_media(filename: str) -> FileResponse:
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=404, detail="Not found")
+    root = CONFIG.download_dir.resolve()
+    path = (CONFIG.download_dir / filename).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Not found") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path)
+
+
+@app.get("/feed/{feed_key}.rss")
+async def serve_feed(feed_key: str) -> Response:
+    key = feed_key.removesuffix(".rss") if feed_key.endswith(".rss") else feed_key
+    if key not in FEED_NAMES:
+        raise HTTPException(status_code=404, detail="Unknown feed")
+    rss_path = CONFIG.resolve_rss_dir() / FEED_NAMES[key]
+    if not rss_path.is_file():
+        raise HTTPException(status_code=404, detail="Feed not built yet — POST /api/rss/rebuild")
+    return Response(content=rss_path.read_bytes(), media_type="application/rss+xml")
 
 
 @app.websocket("/ws")

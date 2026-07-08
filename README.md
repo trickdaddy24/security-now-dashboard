@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.2.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.3.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -44,6 +44,8 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
 - **Download history** — JSONL log survives restarts; per-episode `.meta.json` sidecars with SHA-256
 - **Config file** — `config.toml` or `SN_*` env vars for download dir, parallel, media defaults
 - **Live dashboard** — WebSocket progress bars, throughput, disk free, retry failed button
+- **Library & RSS** — scan local archive, build podcast RSS feeds, serve at `/feed/*.rss`
+- **Transcript search** — SQLite FTS5 index, dashboard Search tab, `GET /api/search?q=…`
 - **Headless CLI** — `sn-download` / `python -m grc_downloader` with GRC-Downloader.sh flag parity
 - **REST API** — start batches, cancel, estimate, history, poll status, fetch catalog, webhooks
 - **Docker-ready** — dashboard container or one-shot CLI via `docker compose run`
@@ -387,7 +389,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 |-------|--------|--------|
 | **1** | Foundation — downloader + live dashboard | Shipped (v1.1.0) |
 | **2** | CLI & automation — bash parity, cron, JSON output | Shipped (v1.2.0) |
-| **3** | Library & discovery — RSS, transcript search, gap reports | Planned |
+| **3** | Library & discovery — RSS, transcript search, gap reports | Shipped (v1.3.0) |
 | **4** | Dashboard & UX — library browser, charts, mobile | Planned |
 | **5** | Homelab production — Saltbox, watcher, Notifier hooks | Planned |
 
@@ -395,6 +397,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.3.0** | 2026-07-08 | Phase 3 — library scan, RSS feeds, transcript search, version badge |
 | **1.2.0** | 2026-07-08 | Phase 2 — headless CLI, systemd/docker recipes, API hardening |
 | **1.1.0** | 2026-07-08 | Phase 1 polish — video, config, history, retry, metadata sidecars |
 | **1.0.0** | 2026-07-08 | Initial release — downloader + live dashboard + Docker + CI |

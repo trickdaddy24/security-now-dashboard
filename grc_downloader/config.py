@@ -18,11 +18,21 @@ class AppConfig:
     verify_ssl: bool = True
     min_free_mb: int = 500
     history_file: Path | None = None
+    rss_dir: Path | None = None
+    rss_base_url: str | None = None
+    rss_limit: int = 500
+    search_db: Path | None = None
 
     def resolve_history_path(self) -> Path:
         if self.history_file:
             return self.history_file
         return self.download_dir / ".sn-history.jsonl"
+
+    def resolve_rss_dir(self) -> Path:
+        return self.rss_dir if self.rss_dir else self.download_dir
+
+    def resolve_search_db(self) -> Path:
+        return self.search_db if self.search_db else self.download_dir / ".sn-search.db"
 
 
 def _load_toml(path: Path) -> dict:
@@ -56,6 +66,16 @@ def load_config() -> AppConfig:
             cfg.default_media = list(media["default"])
         if data.get("history", {}).get("file"):
             cfg.history_file = Path(data["history"]["file"]).expanduser()
+        rss = data.get("rss", {})
+        if rss.get("dir"):
+            cfg.rss_dir = Path(rss["dir"]).expanduser()
+        if rss.get("base_url"):
+            cfg.rss_base_url = str(rss["base_url"])
+        if "limit" in rss:
+            cfg.rss_limit = int(rss["limit"])
+        search = data.get("search", {})
+        if search.get("db"):
+            cfg.search_db = Path(search["db"]).expanduser()
         break
 
     if env := os.getenv("SN_DOWNLOAD_DIR"):
@@ -74,6 +94,14 @@ def load_config() -> AppConfig:
         cfg.skip_existing = env.lower() not in ("0", "false", "no")
     if env := os.getenv("SN_MEDIA"):
         cfg.default_media = [m.strip() for m in env.split(",") if m.strip()]
+    if env := os.getenv("SN_RSS_DIR"):
+        cfg.rss_dir = Path(env)
+    if env := os.getenv("SN_RSS_BASE_URL"):
+        cfg.rss_base_url = env
+    if env := os.getenv("SN_RSS_LIMIT"):
+        cfg.rss_limit = int(env)
+    if env := os.getenv("SN_SEARCH_DB"):
+        cfg.search_db = Path(env)
 
     cfg.download_dir.mkdir(parents=True, exist_ok=True)
     return cfg

@@ -21,91 +21,156 @@
         <p class="subtitle">Live download console · fork of <a href="https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT" target="_blank" rel="noopener">GRC-Downloader</a></p>
       </div>
     </div>
-    <div class="status-pill" id="connStatus">
-      <span class="dot"></span>
-      <span>Connecting…</span>
+    <div class="topbar-right">
+      <span class="version-badge" id="versionBadge" title="Application version">v…</span>
+      <div class="status-pill" id="connStatus">
+        <span class="dot"></span>
+        <span>Connecting…</span>
+      </div>
     </div>
   </header>
 
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="downloads" role="tab" aria-selected="true">Downloads</button>
+    <button class="tab" data-tab="library" role="tab">Library</button>
+    <button class="tab" data-tab="search" role="tab">Search</button>
+  </nav>
+
   <main class="layout">
-    <section class="panel controls">
-      <h2>Launch batch</h2>
-      <form id="downloadForm">
-        <label>
-          Episodes
-          <input type="text" name="episodes" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
-        </label>
-
-        <fieldset class="media-grid">
-          <legend>Media types</legend>
-          <label><input type="checkbox" name="media" value="audio_hq" checked /> Audio HQ</label>
-          <label><input type="checkbox" name="media" value="audio_lq" /> Audio LQ</label>
-          <label><input type="checkbox" name="media" value="audio_twit" /> TWiT audio</label>
-          <label><input type="checkbox" name="media" value="video_hd" /> Video HD</label>
-          <label><input type="checkbox" name="media" value="video_hq" /> Video HQ</label>
-          <label><input type="checkbox" name="media" value="video_lq" /> Video LQ</label>
-          <label><input type="checkbox" name="media" value="transcript_txt" /> Transcript .txt</label>
-          <label><input type="checkbox" name="media" value="transcript_pdf" /> Transcript .pdf</label>
-          <label><input type="checkbox" name="media" value="show_notes" /> Show notes</label>
-        </fieldset>
-
-        <label>
-          Filename format
-          <select name="filename_format">
-            <option value="raw">raw — sn-1086.mp3</option>
-            <option value="ordered">ordered — 1086 Title - date [tag].ext</option>
-            <option value="kodi">kodi — Security Now S2026E1086</option>
-          </select>
-        </label>
-
-        <div class="row">
+    <!-- Downloads tab -->
+    <div id="panel-downloads" class="tab-panel active">
+      <section class="panel controls">
+        <h2>Launch batch</h2>
+        <form id="downloadForm">
           <label>
-            Parallel
-            <input type="number" name="parallel" min="1" max="8" value="2" />
+            Episodes
+            <input type="text" name="episodes" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
           </label>
-          <label class="checkbox-inline">
-            <input type="checkbox" name="skip_existing" checked />
-            Skip existing files
+
+          <fieldset class="media-grid">
+            <legend>Media types</legend>
+            <label><input type="checkbox" name="media" value="audio_hq" checked /> Audio HQ</label>
+            <label><input type="checkbox" name="media" value="audio_lq" /> Audio LQ</label>
+            <label><input type="checkbox" name="media" value="audio_twit" /> TWiT audio</label>
+            <label><input type="checkbox" name="media" value="video_hd" /> Video HD</label>
+            <label><input type="checkbox" name="media" value="video_hq" /> Video HQ</label>
+            <label><input type="checkbox" name="media" value="video_lq" /> Video LQ</label>
+            <label><input type="checkbox" name="media" value="transcript_txt" /> Transcript .txt</label>
+            <label><input type="checkbox" name="media" value="transcript_pdf" /> Transcript .pdf</label>
+            <label><input type="checkbox" name="media" value="show_notes" /> Show notes</label>
+          </fieldset>
+
+          <label>
+            Filename format
+            <select name="filename_format">
+              <option value="raw">raw — sn-1086.mp3</option>
+              <option value="ordered">ordered — 1086 Title - date [tag].ext</option>
+              <option value="kodi">kodi — Security Now S2026E1086</option>
+            </select>
           </label>
+
+          <div class="row">
+            <label>
+              Parallel
+              <input type="number" name="parallel" min="1" max="8" value="2" />
+            </label>
+            <label class="checkbox-inline">
+              <input type="checkbox" name="skip_existing" checked />
+              Skip existing files
+            </label>
+          </div>
+
+          <p class="disk-line muted" id="diskLine">Disk free: —</p>
+
+          <div class="actions">
+            <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
+            <button type="button" class="btn danger" id="cancelBtn">Cancel batch</button>
+            <button type="button" class="btn" id="retryBtn">Retry failed</button>
+          </div>
+        </form>
+
+        <div class="catalog" id="catalog">
+          <h3>Archive feed</h3>
+          <p class="muted">Loading GRC catalog…</p>
+        </div>
+      </section>
+
+      <section class="panel dashboard">
+        <div class="stats" id="stats">
+          <div class="stat"><span class="label">Active</span><span class="value" data-k="active">0</span></div>
+          <div class="stat"><span class="label">Queued</span><span class="value" data-k="queued">0</span></div>
+          <div class="stat"><span class="label">Done</span><span class="value" data-k="completed">0</span></div>
+          <div class="stat"><span class="label">Failed</span><span class="value warn" data-k="failed">0</span></div>
+          <div class="stat wide"><span class="label">Download folder</span><span class="value mono small" id="dlDir">—</span></div>
         </div>
 
-        <p class="disk-line muted" id="diskLine">Disk free: —</p>
+        <div class="throughput">
+          <div class="throughput-label">Aggregate throughput</div>
+          <div class="throughput-value" id="throughput">0 B/s</div>
+        </div>
 
+        <div class="job-list" id="jobList">
+          <p class="empty">No jobs yet. Start a batch to watch downloads live.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Library tab -->
+    <div id="panel-library" class="tab-panel">
+      <section class="panel controls">
+        <h2>Local archive</h2>
+        <div class="lib-summary" id="libSummary">
+          <p class="muted">Loading library scan…</p>
+        </div>
         <div class="actions">
-          <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
-          <button type="button" class="btn danger" id="cancelBtn">Cancel batch</button>
-          <button type="button" class="btn" id="retryBtn">Retry failed</button>
+          <button type="button" class="btn" id="refreshLibBtn">Refresh scan</button>
+          <button type="button" class="btn" id="fillTranscriptsBtn">Download missing transcripts</button>
         </div>
-      </form>
 
-      <div class="catalog" id="catalog">
-        <h3>Archive feed</h3>
-        <p class="muted">Loading GRC catalog…</p>
-      </div>
-    </section>
+        <div class="rss-block">
+          <h3>RSS feeds</h3>
+          <p class="muted" id="rssStatus">Not built yet</p>
+          <div class="feed-links" id="feedLinks"></div>
+          <button type="button" class="btn primary" id="rebuildRssBtn">Rebuild RSS</button>
+        </div>
+      </section>
 
-    <section class="panel dashboard">
-      <div class="stats" id="stats">
-        <div class="stat"><span class="label">Active</span><span class="value" data-k="active">0</span></div>
-        <div class="stat"><span class="label">Queued</span><span class="value" data-k="queued">0</span></div>
-        <div class="stat"><span class="label">Done</span><span class="value" data-k="completed">0</span></div>
-        <div class="stat"><span class="label">Failed</span><span class="value warn" data-k="failed">0</span></div>
-        <div class="stat wide"><span class="label">Download folder</span><span class="value mono small" id="dlDir">—</span></div>
-      </div>
+      <section class="panel dashboard">
+        <h2>Episodes on disk</h2>
+        <div class="lib-table-wrap" id="libTable">
+          <p class="empty">No local episodes found.</p>
+        </div>
+      </section>
+    </div>
 
-      <div class="throughput">
-        <div class="throughput-label">Aggregate throughput</div>
-        <div class="throughput-value" id="throughput">0 B/s</div>
-      </div>
+    <!-- Search tab -->
+    <div id="panel-search" class="tab-panel">
+      <section class="panel controls">
+        <h2>Transcript search</h2>
+        <form id="searchForm">
+          <label>
+            Query
+            <input type="search" name="q" placeholder="spinrite · SQRL · password" autocomplete="off" />
+          </label>
+          <div class="actions">
+            <button type="submit" class="btn primary">Search</button>
+            <button type="button" class="btn" id="reindexBtn">Rebuild index</button>
+          </div>
+        </form>
+        <p class="muted" id="searchStatus">Index: —</p>
+      </section>
 
-      <div class="job-list" id="jobList">
-        <p class="empty">No jobs yet. Start a batch to watch downloads live.</p>
-      </div>
-    </section>
+      <section class="panel dashboard">
+        <h2>Results</h2>
+        <div class="search-results" id="searchResults">
+          <p class="empty">Search across local .txt transcripts.</p>
+        </div>
+      </section>
+    </div>
   </main>
 
   <footer class="footer">
-    Inspired by Seth Leedy's bash downloader · Real-time via WebSocket · GRC / TWiT media endpoints
+    <span id="footerVersion">v…</span> · Inspired by Seth Leedy's bash downloader · GRC / TWiT media endpoints
   </footer>
 
   <script src="/static/app.js"></script>

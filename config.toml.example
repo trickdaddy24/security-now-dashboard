@@ -21,3 +21,11 @@ default = ["audio_hq"]
 # SN_QUIET=1
 # SN_JSON=0
 # SN_PRETEND=0
+
+[rss]
+# dir = "./downloads"
+# base_url = "https://sn.example.com"
+limit = 500
+
+[search]
+# db = "./downloads/.sn-search.db"

@@ -14,7 +14,10 @@ from .config import AppConfig, load_config
 from .disk import check_disk_space
 from .downloader import DownloadManager
 from .models import JobStatus, MediaType
+from .library import library_summary
 from .parser import fetch_catalog, parse_episode_range
+from .rss import build_feeds
+from .search import index_transcripts, search_transcripts
 from .update import check_for_update
 
 EXIT_OK = 0
@@ -59,6 +62,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-u", "--update-check", action="store_true", help="Check GitHub for newer release")
     p.add_argument("--json", action="store_true", help="Machine-readable JSON output")
     p.add_argument("--retry-failed", action="store_true", help="Re-queue failed jobs from last batch")
+    p.add_argument("-create-rss-feeds", dest="create_rss_feeds", action="store_true", help="Build all RSS feeds")
+    p.add_argument("-create-rss-audio", dest="create_rss_audio", action="store_true", help="Build audio RSS")
+    p.add_argument("-create-rss-video", dest="create_rss_video", action="store_true", help="Build video RSS")
+    p.add_argument("-create-rss-text", dest="create_rss_text", action="store_true", help="Build text RSS")
+    p.add_argument("-rss-limit", dest="rss_limit", type=int, metavar="N", help="RSS description char limit")
+    p.add_argument("-stxt", metavar="QUERY", help="Search local transcripts")
+    p.add_argument("-dandstxt", metavar="QUERY", help="Download missing transcripts, then search")
+    p.add_argument("--reindex-search", dest="reindex_search", action="store_true", help="Rebuild transcript search index")
     return p
 
 
@@ -166,10 +177,128 @@ def make_progress_printer(quiet: bool, json_mode: bool):
 MEDIA_ENV_MAP: dict[str, str] = {media.value: key for key, media in MEDIA_FLAGS.items()}
 
 
+def _has_download_intent(args: argparse.Namespace) -> bool:
+    return any([
+        args.ep,
+        args.latest,
+        args.all,
+        args.retry_failed,
+        *[getattr(args, k) for k in MEDIA_FLAGS],
+    ])
+
+
+def _has_library_intent(args: argparse.Namespace) -> bool:
+    return any([
+        args.create_rss_feeds,
+        args.create_rss_audio,
+        args.create_rss_video,
+        args.create_rss_text,
+        args.stxt,
+        args.dandstxt,
+        args.reindex_search,
+    ])
+
+
+async def _download_missing_transcripts(config: AppConfig, mgr: DownloadManager) -> int:
+    _, latest = await fetch_catalog(verify_ssl=config.verify_ssl)
+    summary = library_summary(config.download_dir, latest)
+    episodes = [
+        item["episode"]
+        for item in summary.get("missing_formats", [])
+        if "transcript_txt" in item.get("missing", [])
+    ]
+    if not episodes:
+        return EXIT_OK
+    episodes_meta, _ = await fetch_catalog(verify_ssl=config.verify_ssl)
+    titles = {e.number: e.title for e in episodes_meta}
+    dates = {e.number: e.date_label for e in episodes_meta}
+    ok, err = await mgr.enqueue(
+        episodes=sorted(set(episodes)),
+        media_types=[MediaType.TRANSCRIPT_TXT],
+        titles=titles,
+        dates=dates,
+    )
+    if not ok:
+        print(err or "Failed to queue transcripts", file=sys.stderr)
+        return EXIT_USAGE
+    while mgr._running:  # noqa: SLF001
+        await asyncio.sleep(0.25)
+    return _exit_from_counts(mgr.snapshot()["counts"])
+
+
 async def run_cli(args: argparse.Namespace) -> int:
     config = apply_cli_overrides(load_config(), args)
     quiet = args.quiet
     json_mode = args.json
+    if args.rss_limit is not None:
+        config.rss_limit = args.rss_limit
+
+    if args.reindex_search:
+        state = index_transcripts(config.download_dir, db_path=config.resolve_search_db())
+        if json_mode:
+            print(json.dumps(state))
+        else:
+            print(f"Indexed {state['documents']} transcript(s)")
+        if not _has_download_intent(args) and not any([
+            args.create_rss_feeds,
+            args.create_rss_audio,
+            args.create_rss_video,
+            args.create_rss_text,
+            args.stxt,
+            args.dandstxt,
+        ]):
+            return EXIT_OK
+
+    rss_which: set[str] = set()
+    if args.create_rss_feeds:
+        rss_which = {"audio", "video", "text", "all"}
+    else:
+        if args.create_rss_audio:
+            rss_which.add("audio")
+        if args.create_rss_video:
+            rss_which.add("video")
+        if args.create_rss_text:
+            rss_which.add("text")
+    if rss_which:
+        base = config.rss_base_url or os.getenv("SN_PUBLIC_URL")
+        state = build_feeds(
+            config.download_dir,
+            rss_dir=config.resolve_rss_dir(),
+            base_url=base,
+            desc_limit=config.rss_limit,
+            which=rss_which,
+        )
+        if json_mode:
+            print(json.dumps(state))
+        else:
+            for key, count in (state.get("counts") or {}).items():
+                print(f"RSS {key}: {count} item(s)")
+        if not _has_download_intent(args) and not (args.stxt or args.dandstxt):
+            return EXIT_OK
+
+    if args.stxt or args.dandstxt:
+        query = args.dandstxt or args.stxt
+        mgr = DownloadManager(config, broadcast=make_progress_printer(quiet, json_mode))
+        if args.dandstxt:
+            code = await _download_missing_transcripts(config, mgr)
+            if code != EXIT_OK:
+                return code
+        index_transcripts(config.download_dir, db_path=config.resolve_search_db())
+        results = search_transcripts(
+            config.download_dir,
+            query,
+            db_path=config.resolve_search_db(),
+        )
+        if json_mode:
+            print(json.dumps({"query": query, "results": results}))
+        else:
+            if not results:
+                print("No matches.")
+            for hit in results:
+                print(f"#{hit['episode']} {hit['title']}")
+                if hit.get("snippet"):
+                    print(f"  {hit['snippet'].replace('<mark>', '*').replace('</mark>', '*')}")
+        return EXIT_OK
 
     if args.update_check:
         info = await check_for_update()
@@ -181,10 +310,7 @@ async def run_cli(args: argparse.Namespace) -> int:
             print(f"Update check failed: {info['error']}", file=sys.stderr)
         else:
             print(f"Up to date (v{info['current']})")
-        if not any([
-            args.ep, args.latest, args.all, args.retry_failed,
-            *[getattr(args, k) for k in MEDIA_FLAGS],
-        ]):
+        if not _has_download_intent(args):
             return EXIT_OK
 
     media_types = collect_media(args, config)

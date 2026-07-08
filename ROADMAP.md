@@ -12,7 +12,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 |-------|--------|--------|
 | **1** | Foundation — downloader + live dashboard | **Shipped** (v1.1.0) |
 | **2** | CLI & automation — bash-script parity, scripting | **Shipped** (v1.2.0) |
-| **3** | Library & discovery — RSS, search, media library | Planned |
+| **3** | Library & discovery — RSS, search, media library | **Shipped** (v1.3.0) |
 | **4** | Dashboard & UX — polish, browsing, insights | Planned |
 | **5** | Homelab production — Saltbox, auth, watchers, integrations | Planned |
 
@@ -94,37 +94,37 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 **Goal:** Turn a folder of downloads into a **searchable personal archive** — RSS for players, full-text search, library browser.
 
-**Why:** The upstream script's killer features after downloading are RSS feeds and transcript search. This phase makes the archive useful years later.
+**Status:** Shipped in **v1.3.0** (July 2026).
 
 ### RSS feeds (upstream `-create-rss-*`)
 
-- [ ] `security_now_audio.rss` from local MP3s + GRC metadata
-- [ ] `security_now_video.rss` (when Phase 1 video lands)
-- [ ] `security_now_text.rss` — show notes + transcript excerpts
-- [ ] Combined `security_now.rss` (`-create-rss-feeds` parity)
-- [ ] `-rss-filename` / config path override
-- [ ] `-rss-limit N` — truncate description text per item
-- [ ] Enclosure URLs: `file://` for local players, or HTTP base URL when served behind Traefik
-- [ ] Dashboard: **Rebuild RSS** button + last-built timestamp
-- [ ] Serve RSS at `GET /feed/audio.rss` (optional static + dynamic)
+- [x] `security_now_audio.rss` from local MP3s + GRC metadata
+- [x] `security_now_video.rss`
+- [x] `security_now_text.rss` — show notes + transcript excerpts
+- [x] Combined `security_now.rss` (`-create-rss-feeds` parity)
+- [x] `-rss-filename` / config path override (`SN_RSS_DIR`, `[rss]` in config)
+- [x] `-rss-limit N` — truncate description text per item
+- [x] Enclosure URLs: `file://` for local players, or HTTP via `SN_RSS_BASE_URL` / `/media/{file}`
+- [x] Dashboard: **Rebuild RSS** button + last-built timestamp
+- [x] Serve RSS at `GET /feed/audio.rss` (+ video, text, all)
 
 ### Transcript search (upstream `-stxt` / `-dandstxt`)
 
-- [ ] Index all local `.txt` transcripts (SQLite FTS5 or tantivy)
-- [ ] Case-insensitive search API: `GET /api/search?q=spinrite`
-- [ ] Dashboard search tab with highlighted snippets + episode jump links
-- [ ] `-dandstxt`: download missing transcripts then search (one-shot CLI flag)
+- [x] Index all local `.txt` transcripts (SQLite FTS5)
+- [x] Case-insensitive search API: `GET /api/search?q=spinrite`
+- [x] Dashboard search tab with highlighted snippets + episode jump links
+- [x] `-dandstxt`: download missing transcripts then search (CLI + API)
 - [ ] Compressed cache dir (gzip/7z) for `.tmp_search_txt` parity — optional on low-disk systems
 - [ ] Search across show notes PDF text (pdftotext or embedded extract)
 
 ### Library intelligence
 
-- [ ] `GET /api/library` — scan download dir: episode #, formats on disk, total size, gaps in sequence
-- [ ] “Missing episodes” report: compare local set vs GRC latest (e.g. you have 1–900 but gap at 412)
-- [ ] “Missing formats” per episode (have MP3 but no transcript)
-- [ ] One-click batch: “fill gaps” / “download all missing transcripts”
-- [ ] SHA-256 checksum verify after download; re-download on mismatch
-- [ ] Import legacy folders from old `GRC-Downloader.sh` naming (`sn-01086.mp3` etc.)
+- [x] `GET /api/library` — scan download dir: episode #, formats on disk, total size, gaps in sequence
+- [x] “Missing episodes” report: compare local set vs GRC latest
+- [x] “Missing formats” per episode (have MP3 but no transcript)
+- [x] One-click batch: “download all missing transcripts” (dashboard + API)
+- [x] SHA-256 checksum verify on library scan (via `.meta.json` sidecars)
+- [x] Legacy filename detection (`sn-01086.mp3`, kodi/ordered names)
 
 **Success criteria:** Plex/Apple Podcasts can subscribe to your local RSS; search finds “SQRL” across 500+ transcripts in &lt;1s.
 

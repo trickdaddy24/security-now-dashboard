@@ -20,6 +20,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python test_smoke.py
       - run: python test_cli.py
+      - run: python test_library.py
       - name: Integration (main only)
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.11'
         run: python test_integration.py

@@ -6,9 +6,28 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Planned
-- RSS feed generation (`-create-rss-audio` parity)
-- Transcript full-text search
 - Optional dashboard authentication for public deploys
+- Show notes PDF full-text search (pdftotext)
+- Compressed transcript cache for low-disk systems
+
+## [1.3.0] - 2026-07-08
+
+### Added
+- **Version badge** on dashboard header and footer (from `VERSION` via `/api/config`)
+- **Library tab** — scan local archive, gaps, missing formats, checksum status
+- **Search tab** — SQLite FTS5 transcript search with highlighted snippets
+- **RSS feeds** — audio, video, text, combined; CLI `-create-rss-*`, dashboard Rebuild button
+- `GET /api/library`, `GET /api/search`, `POST /api/search/reindex`
+- `GET /api/rss/status`, `POST /api/rss/rebuild`, `GET /feed/{audio|video|text|all}.rss`
+- `GET /media/{filename}` for HTTP RSS enclosures behind Traefik
+- `POST /api/library/fill-transcripts` — queue missing `.txt` downloads
+- CLI: `-stxt`, `-dandstxt`, `--reindex-search`, `-rss-limit`
+- Config: `[rss]`, `[search]`, `SN_RSS_BASE_URL`, `SN_RSS_DIR`, `SN_SEARCH_DB`
+- `test_library.py` offline tests
+
+### Changed
+- Dashboard tab navigation: Downloads · Library · Search
+- App version reads dynamically from `VERSION` file (now **1.3.0**)
 
 ## [1.2.0] - 2026-07-08
 
@@ -57,7 +76,8 @@ All notable changes to this project are documented here. Format follows
 - Docker image and `docker-compose.yml` with health check
 - Project documentation suite (README, ROADMAP, CONTRIBUTING, LICENSE)
 
-[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.3.0
 [1.2.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.2.0
 [1.1.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.1.0
 [1.0.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.0.0

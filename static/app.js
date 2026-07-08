@@ -6,6 +6,8 @@ const throughputEl = document.getElementById("throughput");
 const dlDir = document.getElementById("dlDir");
 const startBtn = document.getElementById("startBtn");
 const form = document.getElementById("downloadForm");
+const versionBadge = document.getElementById("versionBadge");
+const footerVersion = document.getElementById("footerVersion");
 
 function fmtBytes(n) {
   if (!n && n !== 0) return "—";
@@ -16,9 +18,17 @@ function fmtBytes(n) {
   return `${v.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
 
+function setVersion(v) {
+  const label = `v${v}`;
+  if (versionBadge) versionBadge.textContent = label;
+  if (footerVersion) footerVersion.textContent = label;
+  document.title = `Security Now ${label} — Live Download Console`;
+}
+
 async function loadConfig() {
   try {
     const cfg = await (await fetch("/api/config")).json();
+    if (cfg.version) setVersion(cfg.version);
     const parallel = form.querySelector('input[name="parallel"]');
     if (parallel && cfg.parallel) parallel.value = cfg.parallel;
     const fmt = form.querySelector('select[name="filename_format"]');
@@ -61,10 +71,6 @@ function renderStats(snapshot) {
 
   const activeJobs = (snapshot.jobs || []).filter((j) => j.status === "running");
   const totalSpeed = activeJobs.reduce((sum, j) => sum + (j.speed_bps || 0), 0);
-  throughputEl.textContent = totalSpeed > 0 ? activeJobs[0].speed_human.replace(/[\d.]+/, (m) => {
-    // show aggregate if multiple
-    return (totalSpeed / (totalSpeed >= 1024 * 1024 ? 1024 * 1024 : totalSpeed >= 1024 ? 1024 : 1)).toFixed(1);
-  }) : "0 B/s";
 
   if (activeJobs.length === 1) {
     throughputEl.textContent = activeJobs[0].speed_human;
@@ -164,6 +170,22 @@ function connectWs() {
   };
 }
 
+// Tabs
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === tab);
+      t.setAttribute("aria-selected", t.dataset.tab === tab ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-panel").forEach((p) => {
+      p.classList.toggle("active", p.id === `panel-${tab}`);
+    });
+    if (tab === "library") loadLibrary();
+    if (tab === "search") loadSearchStatus();
+  });
+});
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(form);
@@ -201,6 +223,126 @@ document.getElementById("retryBtn").addEventListener("click", async () => {
   });
   const data = await res.json();
   if (!data.ok) alert(data.error || "Nothing to retry");
+});
+
+// Library
+function renderLibrary(data) {
+  const summary = document.getElementById("libSummary");
+  summary.innerHTML = `
+    <div class="stat-row">
+      <div class="chip"><strong>${data.episode_count ?? 0}</strong> episodes</div>
+      <div class="chip"><strong>${fmtBytes(data.total_bytes)}</strong> on disk</div>
+      <div class="chip">Local latest: <strong>#${data.latest_local ?? "—"}</strong></div>
+      <div class="chip">GRC latest: <strong>#${data.latest_remote ?? "—"}</strong></div>
+      <div class="chip">Missing eps: <strong>${data.missing_episode_count ?? 0}</strong></div>
+      <div class="chip">Checksum fails: <strong>${(data.checksum_failures || []).length}</strong></div>
+    </div>
+    ${data.missing_episodes?.length ? `<p class="muted">Gap sample: ${data.missing_episodes.slice(0, 12).join(", ")}${data.missing_episode_count > 12 ? "…" : ""}</p>` : ""}
+  `;
+
+  const table = document.getElementById("libTable");
+  const eps = data.episodes || [];
+  if (!eps.length) {
+    table.innerHTML = "<p class='empty'>No local episodes found.</p>";
+    return;
+  }
+  table.innerHTML = eps.map((e) => `
+    <div class="lib-row">
+      <span class="ep">#${e.number}</span>
+      <span>${e.title || "Untitled"}<br><span class="muted">${(e.formats || []).join(" · ")}</span></span>
+      <span class="formats">${fmtBytes(e.total_bytes)}</span>
+    </div>
+  `).join("");
+}
+
+async function loadLibrary() {
+  try {
+    const data = await (await fetch("/api/library")).json();
+    renderLibrary(data);
+    loadRssStatus();
+  } catch {
+    document.getElementById("libSummary").innerHTML = "<p class='muted'>Library scan failed.</p>";
+  }
+}
+
+async function loadRssStatus() {
+  try {
+    const data = await (await fetch("/api/rss/status")).json();
+    const el = document.getElementById("rssStatus");
+    const links = document.getElementById("feedLinks");
+    if (!data.built_at) {
+      el.textContent = "Not built yet — click Rebuild RSS";
+      links.innerHTML = "";
+      return;
+    }
+    const when = new Date(data.built_at * 1000).toLocaleString();
+    const counts = Object.entries(data.counts || {}).map(([k, v]) => `${k}: ${v}`).join(" · ");
+    el.textContent = `Last built: ${when}${counts ? ` · ${counts}` : ""}`;
+    const feedMap = { audio: "audio", video: "video", text: "text", all: "all" };
+    links.innerHTML = Object.entries(feedMap).map(([key, path]) =>
+      `<a href="/feed/${path}.rss" target="_blank" rel="noopener">/feed/${path}.rss</a>`
+    ).join("");
+  } catch { /* ignore */ }
+}
+
+document.getElementById("refreshLibBtn")?.addEventListener("click", loadLibrary);
+
+document.getElementById("rebuildRssBtn")?.addEventListener("click", async () => {
+  const btn = document.getElementById("rebuildRssBtn");
+  btn.disabled = true;
+  const res = await fetch("/api/rss/rebuild", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const data = await res.json();
+  btn.disabled = false;
+  if (!data.ok) alert("RSS rebuild failed");
+  loadRssStatus();
+});
+
+document.getElementById("fillTranscriptsBtn")?.addEventListener("click", async () => {
+  const res = await fetch("/api/library/fill-transcripts", { method: "POST" });
+  const data = await res.json();
+  if (!data.ok) alert(data.error || "Failed");
+  else if (!data.episodes?.length) alert(data.message || "No missing transcripts");
+  else alert(`Queued transcripts for ${data.episodes.length} episode(s)`);
+});
+
+// Search
+async function loadSearchStatus() {
+  try {
+    const data = await (await fetch("/api/search/status")).json();
+    const el = document.getElementById("searchStatus");
+    if (!data.indexed_at) {
+      el.textContent = "Index: not built — click Rebuild index";
+      return;
+    }
+    el.textContent = `Index: ${data.documents} transcript(s) · ${new Date(data.indexed_at * 1000).toLocaleString()}`;
+  } catch { /* ignore */ }
+}
+
+document.getElementById("searchForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = new FormData(e.target).get("q");
+  if (!q) return;
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  const box = document.getElementById("searchResults");
+  if (!data.results?.length) {
+    box.innerHTML = "<p class='empty'>No matches.</p>";
+    return;
+  }
+  box.innerHTML = data.results.map((r) => `
+    <article class="hit">
+      <div class="hit-ep">#${r.episode} · ${r.title || "Episode"}</div>
+      <div class="snippet">${r.snippet || ""}</div>
+    </article>
+  `).join("");
+});
+
+document.getElementById("reindexBtn")?.addEventListener("click", async () => {
+  const btn = document.getElementById("reindexBtn");
+  btn.disabled = true;
+  await fetch("/api/search/reindex", { method: "POST" });
+  btn.disabled = false;
+  loadSearchStatus();
 });
 
 loadConfig();
