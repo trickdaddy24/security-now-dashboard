@@ -15,7 +15,10 @@ log = logging.getLogger(__name__)
 TWIT_SN_FEED = "https://feeds.twit.tv/sn.xml"
 CACHE_FILE = ".sn-twit-thumb-cache.json"
 CACHE_TTL_SECONDS = 24 * 3600
-USER_AGENT = "SecurityNowDashboard/1.0"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
 _NS = {
     "itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
@@ -132,24 +135,30 @@ async def download_episode_art(
     video_path: Path,
     *,
     verify_ssl: bool = True,
+    force: bool = False,
 ) -> bool:
-    url = await get_thumb_url(download_dir, episode, verify_ssl=verify_ssl)
-    if not url:
-        log.warning("No TWiT thumb for episode %s", episode)
-        return False
+    from .episode_art import fetch_episode_art_bytes, record_art_fetch
+
     thumb_path, fanart_path = thumb_paths_for_video(video_path)
+    poster_path = video_path.parent / "poster.jpg"
+    if not force and thumb_path.is_file() and thumb_path.stat().st_size > 0:
+        return True
+
+    data, source = await fetch_episode_art_bytes(download_dir, episode, verify_ssl=verify_ssl)
+    if not data:
+        log.warning("No episode art for #%s (YouTube + TWiT both failed)", episode)
+        return False
+
     try:
-        async with httpx.AsyncClient(timeout=30.0, verify=verify_ssl, headers={"User-Agent": USER_AGENT}) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.content
         thumb_path.parent.mkdir(parents=True, exist_ok=True)
         thumb_path.write_bytes(data)
         fanart_path.write_bytes(data)
-        log.info("Saved episode art for #%s → %s", episode, thumb_path.name)
+        poster_path.write_bytes(data)
+        record_art_fetch(download_dir, episode, source, len(data))
+        log.info("Saved episode art for #%s (%s, %d bytes) → %s", episode, source, len(data), thumb_path.name)
         return True
     except Exception:
-        log.exception("Failed to download thumb for episode %s", episode)
+        log.exception("Failed to write thumb for episode %s", episode)
         return False
 
 
@@ -186,6 +195,7 @@ async def fetch_thumbs_for_library(
                 entry.number,
                 video_path,
                 verify_ssl=verify_ssl,
+                force=not skip_existing,
             )
             if ok:
                 fetched.append(entry.number)

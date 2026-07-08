@@ -10,6 +10,13 @@ All notable changes to this project are documented here. Format follows
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
 
+## [1.8.2] - 2026-07-08
+
+### Fixed
+- **Episode art** — YouTube thumbnails (via TWiT episode page embed ID) with TWiT RSS fallback; validates JPEG/PNG before save; browser User-Agent fixes elroy.twit.tv 403s
+- **Plex extras** — also writes `poster.jpg` beside each video
+- **Integration test** — `test_episode_art.py` live-downloads ep 1082 art (skippable via `SN_SKIP_INTEGRATION`)
+
 ## [1.8.1] - 2026-07-08
 
 ### Added
