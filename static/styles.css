@@ -269,6 +269,18 @@ fieldset.media-grid label {
 
 .muted { color: var(--muted); font-size: 0.78rem; }
 
+.disk-line { margin: 0.25rem 0 0.75rem; }
+
+select {
+  background: #0c1310;
+  border: 1px solid var(--panel-edge);
+  color: var(--text);
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

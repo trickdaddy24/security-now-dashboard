@@ -9,11 +9,23 @@ const form = document.getElementById("downloadForm");
 
 function fmtBytes(n) {
   if (!n && n !== 0) return "—";
-  const units = ["B", "KB", "MB", "GB"];
+  const units = ["B", "KB", "MB", "GB", "TB"];
   let v = n;
   let i = 0;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
+async function loadConfig() {
+  try {
+    const cfg = await (await fetch("/api/config")).json();
+    const parallel = form.querySelector('input[name="parallel"]');
+    if (parallel && cfg.parallel) parallel.value = cfg.parallel;
+    const fmt = form.querySelector('select[name="filename_format"]');
+    if (fmt && cfg.filename_format) fmt.value = cfg.filename_format;
+    const disk = document.getElementById("diskLine");
+    if (disk) disk.textContent = `Disk free: ${fmtBytes(cfg.disk_free_bytes)}`;
+  } catch { /* ignore */ }
 }
 
 function renderCatalog(data) {
@@ -42,6 +54,10 @@ function renderStats(snapshot) {
     node.textContent = c[k] ?? 0;
   });
   dlDir.textContent = snapshot.download_dir || "—";
+  const disk = document.getElementById("diskLine");
+  if (disk && snapshot.disk_free_bytes != null) {
+    disk.textContent = `Disk free: ${fmtBytes(snapshot.disk_free_bytes)}`;
+  }
 
   const activeJobs = (snapshot.jobs || []).filter((j) => j.status === "running");
   const totalSpeed = activeJobs.reduce((sum, j) => sum + (j.speed_bps || 0), 0);
@@ -161,6 +177,7 @@ form.addEventListener("submit", async (e) => {
     media,
     parallel: Number(fd.get("parallel") || 2),
     skip_existing: fd.get("skip_existing") === "on",
+    filename_format: fd.get("filename_format") || "raw",
   };
   startBtn.disabled = true;
   const res = await fetch("/api/download", {
@@ -176,6 +193,17 @@ document.getElementById("cancelBtn").addEventListener("click", async () => {
   await fetch("/api/cancel", { method: "POST" });
 });
 
+document.getElementById("retryBtn").addEventListener("click", async () => {
+  const res = await fetch("/api/download", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ retry_failed: true, episodes: "latest", media: [] }),
+  });
+  const data = await res.json();
+  if (!data.ok) alert(data.error || "Nothing to retry");
+});
+
+loadConfig();
 loadCatalog();
 connectWs();
 fetch("/api/status").then((r) => r.json()).then(applySnapshot);

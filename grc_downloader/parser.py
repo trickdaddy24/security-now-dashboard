@@ -14,10 +14,14 @@ USER_AGENT = "SecurityNowDashboard/1.0 (+fork of GRC-Downloader concept)"
 def media_url(episode: int, media: MediaType) -> str:
     ep = f"{episode:04d}"
     base = "https://www.grc.com/sn"
+    video_base = f"https://cdn.twit.tv/video/sn/sn{episode}/sn{episode}"
     mapping = {
         MediaType.AUDIO_HQ: f"https://media.grc.com/sn/sn-{ep}.mp3",
         MediaType.AUDIO_LQ: f"https://media.grc.com/sn/sn-{ep}-lq.mp3",
         MediaType.AUDIO_TWIT: f"https://cdn.twit.tv/audio/sn/sn{episode}/sn{episode}.mp3",
+        MediaType.VIDEO_HD: f"{video_base}_hd.mp4",
+        MediaType.VIDEO_HQ: f"{video_base}_hq.mp4",
+        MediaType.VIDEO_LQ: f"{video_base}_lq.mp4",
         MediaType.TRANSCRIPT_TXT: f"{base}/sn-{ep}.txt",
         MediaType.TRANSCRIPT_PDF: f"{base}/sn-{ep}.pdf",
         MediaType.TRANSCRIPT_HTML: f"{base}/sn-{ep}.htm",

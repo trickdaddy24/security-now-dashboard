@@ -10,7 +10,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 | Phase | Theme | Status |
 |-------|--------|--------|
-| **1** | Foundation — downloader + live dashboard | **Shipped** (v1.0.0) |
+| **1** | Foundation — downloader + live dashboard | **Shipped** (v1.1.0) |
 | **2** | CLI & automation — bash-script parity, scripting | Planned |
 | **3** | Library & discovery — RSS, search, media library | Planned |
 | **4** | Dashboard & UX — polish, browsing, insights | Planned |
@@ -22,7 +22,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 **Goal:** Reliable GRC downloads with a real-time control plane. Personal archival that “just works” on Windows, Linux, and Docker.
 
-**Status:** Shipped in **v1.0.0** (July 2026). Remaining items are maintenance and small gaps before Phase 2.
+**Status:** Shipped in **v1.1.0** (July 2026). Phase 1 polish complete; ready for Phase 2 CLI work.
 
 ### Shipped
 
@@ -36,17 +36,17 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 - [x] Smoke tests + GitHub Actions CI
 - [x] Docs suite (README, CHANGELOG, CONTRIBUTING, LICENSE)
 
-### Phase 1 polish (before calling 1.x “done”)
+### Phase 1 polish (v1.1.0)
 
-- [ ] Video formats: HD / HQ / LQ from `cdn.twit.tv/video/sn` (upstream `-vhd`, `-vhq`, `-vlq`)
-- [ ] Filename presets: `-ff ordered`, `-ff kodi`, custom `<showname> <episodenumber> …` templates
-- [ ] Disk space pre-check before batch (`chk_disk_space` parity from upstream)
-- [ ] Download history log (JSONL or SQLite) — survives restart, feeds Phase 4 charts
-- [ ] Config file (`config.toml` or `.env`) for defaults: download dir, parallel, preferred media
-- [ ] Graceful partial-batch resume after crash (re-queue failed jobs only)
-- [ ] Episode metadata sidecar (`.json` per episode: title, date, URLs, checksum, downloaded_at)
-- [ ] Unit tests for parser edge cases (HTML variants, missing titles, `... min` duration)
-- [ ] Integration test: download one small file (show notes) in CI with network allowlist
+- [x] Video formats: HD / HQ / LQ from `cdn.twit.tv/video/sn` (upstream `-vhd`, `-vhq`, `-vlq`)
+- [x] Filename presets: `-ff ordered`, `-ff kodi`, custom `<showname> <episodenumber> …` templates
+- [x] Disk space pre-check before batch (`chk_disk_space` parity from upstream)
+- [x] Download history log (JSONL or SQLite) — survives restart, feeds Phase 4 charts
+- [x] Config file (`config.toml` or `.env`) for defaults: download dir, parallel, preferred media
+- [x] Graceful partial-batch resume after crash (re-queue failed jobs only)
+- [x] Episode metadata sidecar (`.json` per episode: title, date, URLs, checksum, downloaded_at)
+- [x] Unit tests for parser edge cases (HTML variants, missing titles, `... min` duration)
+- [x] Integration test: download one small file (show notes) in CI with network allowlist
 
 **Success criteria:** Download latest HQ audio + show notes from dashboard or API; Docker health green; zero manual steps after clone.
 

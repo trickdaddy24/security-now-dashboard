@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.0.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -35,11 +35,15 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
 ## Features
 
 - **GRC archive sync** — parses [grc.com/securitynow.htm](https://www.grc.com/securitynow.htm) for latest episode number, titles, and dates
-- **Multi-format downloads** — audio HQ/LQ, TWiT CDN audio, transcript `.txt`/`.pdf`/`.html`, show notes PDF
+- **Multi-format downloads** — audio HQ/LQ, TWiT CDN audio, video HD/HQ/LQ, transcript `.txt`/`.pdf`/`.html`, show notes PDF
 - **Episode selection** — `latest`, `next` (auto-increment from local files), single episode, ranges (`1080:1086`), `all`
-- **Parallel downloads** — configurable concurrency (1–8) with resume and skip-existing
-- **Live dashboard** — WebSocket progress bars, throughput, active/queued/completed counts
-- **REST API** — start batches, cancel, poll status, fetch catalog
+- **Filename presets** — `raw` (`sn-1086.mp3`), `ordered` (title + date), `kodi` (`Security Now S2026E1086`)
+- **Parallel downloads** — configurable concurrency (1–8) with resume, skip-existing, and retry-failed
+- **Disk space pre-check** — estimates batch size and blocks when free space is too low
+- **Download history** — JSONL log survives restarts; per-episode `.meta.json` sidecars with SHA-256
+- **Config file** — `config.toml` or `SN_*` env vars for download dir, parallel, media defaults
+- **Live dashboard** — WebSocket progress bars, throughput, disk free, retry failed button
+- **REST API** — start batches, cancel, estimate, history, poll status, fetch catalog
 - **Docker-ready** — single-container deploy with volume-mounted download directory
 - **Upstream parity (planned)** — RSS feeds, transcript search, full CLI flags — see [ROADMAP.md](ROADMAP.md)
 
@@ -54,7 +58,12 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
                            │
                            └── grc_downloader/
                                  ├── parser.py     scrape GRC catalog + build URLs
-                                 └── downloader.py async queue + streaming I/O
+                                 ├── downloader.py async queue + streaming I/O
+                                 ├── config.py     config.toml + SN_* env
+                                 ├── filenames.py  raw / ordered / kodi presets
+                                 ├── disk.py       space pre-check + estimates
+                                 ├── history.py    JSONL batch/job history
+                                 └── metadata.py   per-episode .meta.json sidecars
                                           │
                                           ▼
                                downloads/  (local episode files)
@@ -103,23 +112,45 @@ Dashboard: **http://localhost:8787** · Downloads persist in `./data/downloads/`
 
 ```bash
 python test_smoke.py
+python test_integration.py   # optional network test (show notes download)
 ```
 
 ## Configuration
 
 | File | Purpose |
 |---|---|
+| `config.toml` | Optional defaults (copy from `config.toml.example`) |
 | `.env` | Optional local overrides (copy from `.env.example`) |
 | `docker-compose.yml` | Container ports, volume mount, health check |
 | `SN_DOWNLOAD_DIR` | Where episode files are written |
 
-No database — state is in-memory for active jobs; completed files live on disk.
+Active jobs are in-memory; completed files, history (`.sn-history.jsonl`), and metadata sidecars live on disk.
+
+Example `config.toml`:
+
+```toml
+[downloads]
+dir = "./downloads"
+parallel = 2
+skip_existing = true
+filename_format = "raw"   # raw | ordered | kodi
+min_free_mb = 500
+
+[media]
+default = ["audio_hq"]
+```
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SN_DOWNLOAD_DIR` | No | `./downloads` | Directory for downloaded episode files |
+| `SN_PARALLEL` | No | `2` | Default parallel download count |
+| `SN_FILENAME_FORMAT` | No | `raw` | `raw`, `ordered`, or `kodi` |
+| `SN_MIN_FREE_MB` | No | `500` | Minimum free disk MB before starting a batch |
+| `SN_VERIFY_SSL` | No | `true` | Set `false` to skip TLS verification |
+| `SN_HISTORY_FILE` | No | `<download_dir>/.sn-history.jsonl` | JSONL history path |
+| `SN_SKIP_INTEGRATION` | No | — | Set `1` to skip network integration test in CI |
 | `SN_HOST` | No | `127.0.0.1` | Bind host when using `python app.py` directly |
 | `SN_PORT` | No | `8787` | Bind port when using `python app.py` directly |
 
@@ -129,9 +160,12 @@ No database — state is in-memory for active jobs; completed files live on disk
 |---|---|---|
 | `GET` | `/` | Dashboard UI |
 | `GET` | `/health` | Health check (`{"status":"ok"}`) |
+| `GET` | `/api/config` | Runtime settings + disk free bytes |
 | `GET` | `/api/catalog` | Latest episode + recent archive entries |
 | `GET` | `/api/status` | Full job snapshot (counts + all jobs) |
-| `POST` | `/api/download` | Start a download batch |
+| `GET` | `/api/history` | Recent JSONL history events (`?limit=50`) |
+| `POST` | `/api/download/estimate` | Disk check + job count for a batch spec |
+| `POST` | `/api/download` | Start a download batch (`retry_failed: true` to re-queue failures) |
 | `POST` | `/api/cancel` | Cancel the running batch |
 | `WS` | `/ws` | Live events: `snapshot`, `batch_started`, `job_updated`, `batch_finished` |
 
@@ -150,6 +184,9 @@ curl -X POST http://127.0.0.1:8787/api/download \
 | `audio_hq` | `sn-XXXX.mp3` (GRC HQ) |
 | `audio_lq` | `sn-XXXX-lq.mp3` |
 | `audio_twit` | `sn-XXXX-twit.mp3` (TWiT CDN) |
+| `video_hd` | `snXXXX_hd.mp4` (TWiT CDN) |
+| `video_hq` | `snXXXX_hq.mp4` (TWiT CDN) |
+| `video_lq` | `snXXXX_lq.mp4` (TWiT CDN) |
 | `transcript_txt` | `sn-XXXX.txt` |
 | `transcript_pdf` | `sn-XXXX.pdf` |
 | `transcript_html` | `sn-XXXX.htm` |
@@ -160,11 +197,13 @@ curl -X POST http://127.0.0.1:8787/api/download \
 <!-- screenshot: dashboard with active download progress bars -->
 
 1. **Episodes** — `latest`, `next`, `1086`, `1080:1086`, or `all`
-2. **Media types** — check one or more formats per batch
-3. **Parallel** — how many simultaneous downloads (default 2)
-4. **Skip existing** — leave checked to avoid re-downloading files already on disk
+2. **Media types** — check one or more formats per batch (including TWiT video HD/HQ/LQ)
+3. **Filename format** — `raw`, `ordered`, or `kodi` naming preset
+4. **Parallel** — how many simultaneous downloads (default 2)
+5. **Skip existing** — leave checked to avoid re-downloading files already on disk
+6. **Retry failed** — re-queue only jobs that failed in the last batch (after crash or cancel)
 
-The status pill turns **Live** when the WebSocket connects. Progress updates stream automatically — no refresh needed.
+The status pill turns **Live** when the WebSocket connects. Disk free space is shown under the form. Progress updates stream automatically — no refresh needed.
 
 ## Episode & Media Options
 
@@ -177,6 +216,8 @@ Mapped from the original bash script:
 | `-all` | `episodes: "all"` |
 | (no flags — next ep) | `episodes: "next"` |
 | `-ahq` / `-alq` | `audio_hq` / `audio_lq` |
+| `-vhd` / `-vhq` / `-vlq` | `video_hd` / `video_hq` / `video_lq` |
+| `-ff ordered` / `-ff kodi` | `filename_format: "ordered"` / `"kodi"` |
 | `-eptxt` / `-eppdf` / `-ephtml` / `-epnotes` | transcript + show_notes media types |
 | `-pd 4` | `parallel: 4` |
 | `-d /path` | `SN_DOWNLOAD_DIR` env var |
@@ -189,7 +230,14 @@ security-now-dashboard/
 ├── grc_downloader/
 │   ├── parser.py          # GRC catalog + URL builder
 │   ├── downloader.py      # Async download manager
+│   ├── config.py          # config.toml + env loader
+│   ├── filenames.py       # raw / ordered / kodi presets
+│   ├── disk.py            # disk space pre-check
+│   ├── history.py         # JSONL batch history
+│   ├── metadata.py        # per-episode sidecars
 │   └── models.py          # Job/media enums
+├── config.toml.example    # Sample config
+├── test_integration.py    # Network integration test
 ├── static/
 │   ├── index.html         # Dashboard shell
 │   ├── styles.css         # Terminal-style UI
@@ -267,7 +315,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Phase | Theme | Status |
 |-------|--------|--------|
-| **1** | Foundation — downloader + live dashboard | Shipped (v1.0.0) |
+| **1** | Foundation — downloader + live dashboard | Shipped (v1.1.0) |
 | **2** | CLI & automation — bash parity, cron, JSON output | Planned |
 | **3** | Library & discovery — RSS, transcript search, gap reports | Planned |
 | **4** | Dashboard & UX — library browser, charts, mobile | Planned |
@@ -277,6 +325,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.1.0** | 2026-07-08 | Phase 1 polish — video, config, history, retry, metadata sidecars |
 | **1.0.0** | 2026-07-08 | Initial release — downloader + live dashboard + Docker + CI |
 
 Full details: [CHANGELOG.md](CHANGELOG.md)

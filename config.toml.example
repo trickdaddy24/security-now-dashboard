@@ -1,0 +1,16 @@
+# Copy to config.toml in the project root (or ~/.config/security-now-dashboard/config.toml)
+
+[downloads]
+dir = "./downloads"
+parallel = 2
+skip_existing = true
+# raw | ordered | kodi
+filename_format = "raw"
+min_free_mb = 500
+verify_ssl = true
+
+[media]
+default = ["audio_hq"]
+
+[history]
+# file = "./downloads/.sn-history.jsonl"

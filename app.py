@@ -2,27 +2,29 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from pathlib import Path
 from typing import Any
 
-import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from grc_downloader.config import AppConfig, load_config
+from grc_downloader.disk import check_disk_space, free_bytes
 from grc_downloader.downloader import DownloadManager
+from grc_downloader.history import read_recent
 from grc_downloader.models import MediaType
 from grc_downloader.parser import fetch_catalog, parse_episode_range
 
 ROOT = Path(__file__).resolve().parent
-DOWNLOAD_DIR = Path(os.getenv("SN_DOWNLOAD_DIR", ROOT / "downloads"))
 STATIC_DIR = ROOT / "static"
 
-app = FastAPI(title="Security Now Dashboard", version="1.0.0")
+CONFIG: AppConfig = load_config()
+
+app = FastAPI(title="Security Now Dashboard", version="1.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _ws_clients: set[WebSocket] = set()
@@ -44,15 +46,17 @@ async def _broadcast(message: dict[str, Any]) -> None:
 def get_manager() -> DownloadManager:
     global _manager
     if _manager is None:
-        _manager = DownloadManager(DOWNLOAD_DIR, broadcast=_broadcast)
+        _manager = DownloadManager(CONFIG, broadcast=_broadcast)
     return _manager
 
 
 class StartRequest(BaseModel):
     episodes: str = Field(default="latest", description="e.g. latest, 1086, 1080:1086, all, next")
-    media: list[str] = Field(default_factory=lambda: ["audio_hq"])
-    parallel: int = Field(default=2, ge=1, le=8)
-    skip_existing: bool = True
+    media: list[str] | None = None
+    parallel: int | None = Field(default=None, ge=1, le=8)
+    skip_existing: bool | None = None
+    filename_format: str | None = None
+    retry_failed: bool = False
 
 
 @app.get("/")
@@ -60,15 +64,29 @@ async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/api/config")
+async def get_config() -> dict[str, Any]:
+    return {
+        "download_dir": str(CONFIG.download_dir.resolve()),
+        "parallel": CONFIG.parallel,
+        "skip_existing": CONFIG.skip_existing,
+        "filename_format": CONFIG.filename_format,
+        "default_media": CONFIG.default_media,
+        "min_free_mb": CONFIG.min_free_mb,
+        "disk_free_bytes": free_bytes(CONFIG.download_dir),
+    }
+
+
 @app.get("/api/catalog")
 async def catalog() -> dict[str, Any]:
     episodes, latest = await fetch_catalog()
     mgr = get_manager()
-    local_next = mgr._local_next_episode()  # noqa: SLF001 — intentional for API
+    local_next = mgr._local_next_episode()  # noqa: SLF001
     return {
         "latest": latest,
         "local_next": local_next,
-        "download_dir": str(DOWNLOAD_DIR.resolve()),
+        "download_dir": str(CONFIG.download_dir.resolve()),
+        "disk_free_bytes": free_bytes(CONFIG.download_dir),
         "episodes": [
             {
                 "number": e.number,
@@ -92,34 +110,79 @@ async def status() -> dict[str, Any]:
     return get_manager().snapshot()
 
 
+@app.get("/api/history")
+async def history(limit: int = 50) -> dict[str, Any]:
+    mgr = get_manager()
+    return {"events": read_recent(mgr.history_path, limit=limit)}
+
+
+@app.post("/api/download/estimate")
+async def estimate_download(req: StartRequest) -> dict[str, Any]:
+    mgr = get_manager()
+    episodes_meta, latest = await fetch_catalog()
+    local_next = mgr._local_next_episode()
+    ep_list = parse_episode_range(req.episodes, latest, local_next)
+    media_types = _parse_media(req.media)
+    if not ep_list:
+        return {"ok": False, "error": "No episodes matched"}
+    ok, msg = check_disk_space(CONFIG.download_dir, ep_list, media_types, CONFIG.min_free_mb)
+    return {
+        "ok": ok,
+        "message": msg,
+        "episodes": ep_list,
+        "job_count": len(ep_list) * len(media_types),
+        "disk_free_bytes": free_bytes(CONFIG.download_dir),
+    }
+
+
+def _parse_media(media: list[str] | None) -> list[MediaType]:
+    raw = media or CONFIG.default_media
+    out: list[MediaType] = []
+    for m in raw:
+        out.append(MediaType(m))
+    return out
+
+
 @app.post("/api/download")
 async def start_download(req: StartRequest) -> dict[str, Any]:
     mgr = get_manager()
-    if mgr._running:
+    if mgr._running and not req.retry_failed:
         return {"ok": False, "error": "A batch is already running"}
+
+    if req.retry_failed:
+        ok, err = await mgr.enqueue(
+            episodes=[],
+            media_types=[],
+            retry_failed=True,
+            parallel=req.parallel,
+        )
+        return {"ok": ok, "error": err or None, "retry_failed": True}
 
     episodes_meta, latest = await fetch_catalog()
     titles = {e.number: e.title for e in episodes_meta}
+    dates = {e.number: e.date_label for e in episodes_meta}
     local_next = mgr._local_next_episode()
 
     ep_list = parse_episode_range(req.episodes, latest, local_next)
     if not ep_list:
         return {"ok": False, "error": "No episodes matched that spec"}
 
-    media_types: list[MediaType] = []
-    for m in req.media:
-        try:
-            media_types.append(MediaType(m))
-        except ValueError:
-            return {"ok": False, "error": f"Unknown media type: {m}"}
+    try:
+        media_types = _parse_media(req.media)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
 
-    await mgr.enqueue(
+    ok, err = await mgr.enqueue(
         episodes=ep_list,
         media_types=media_types,
         titles=titles,
+        dates=dates,
         parallel=req.parallel,
         skip_existing=req.skip_existing,
+        filename_format=req.filename_format,
     )
+    if not ok:
+        return {"ok": False, "error": err}
     return {"ok": True, "episodes": ep_list, "jobs": len(mgr._order)}
 
 
@@ -146,4 +209,6 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="127.0.0.1", port=8787, reload=True)
+    host = os.getenv("SN_HOST", "127.0.0.1")
+    port = int(os.getenv("SN_PORT", "8787"))
+    uvicorn.run("app:app", host=host, port=port, reload=True)

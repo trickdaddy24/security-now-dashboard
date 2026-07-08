@@ -40,11 +40,23 @@
           <legend>Media types</legend>
           <label><input type="checkbox" name="media" value="audio_hq" checked /> Audio HQ</label>
           <label><input type="checkbox" name="media" value="audio_lq" /> Audio LQ</label>
-          <label><input type="checkbox" name="media" value="audio_twit" /> TWiT CDN</label>
+          <label><input type="checkbox" name="media" value="audio_twit" /> TWiT audio</label>
+          <label><input type="checkbox" name="media" value="video_hd" /> Video HD</label>
+          <label><input type="checkbox" name="media" value="video_hq" /> Video HQ</label>
+          <label><input type="checkbox" name="media" value="video_lq" /> Video LQ</label>
           <label><input type="checkbox" name="media" value="transcript_txt" /> Transcript .txt</label>
           <label><input type="checkbox" name="media" value="transcript_pdf" /> Transcript .pdf</label>
           <label><input type="checkbox" name="media" value="show_notes" /> Show notes</label>
         </fieldset>
+
+        <label>
+          Filename format
+          <select name="filename_format">
+            <option value="raw">raw — sn-1086.mp3</option>
+            <option value="ordered">ordered — 1086 Title - date [tag].ext</option>
+            <option value="kodi">kodi — Security Now S2026E1086</option>
+          </select>
+        </label>
 
         <div class="row">
           <label>
@@ -57,9 +69,12 @@
           </label>
         </div>
 
+        <p class="disk-line muted" id="diskLine">Disk free: —</p>
+
         <div class="actions">
           <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
           <button type="button" class="btn danger" id="cancelBtn">Cancel batch</button>
+          <button type="button" class="btn" id="retryBtn">Retry failed</button>
         </div>
       </form>
 

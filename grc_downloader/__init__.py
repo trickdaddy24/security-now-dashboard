@@ -1,6 +1,16 @@
 """Security Now downloader — fork inspired by Seth Leedy's GRC-Downloader.sh."""
 
-from .parser import fetch_catalog, parse_episode_range
-from .downloader import DownloadManager, MediaType
+from .config import AppConfig, load_config
+from .downloader import DownloadManager
+from .models import MediaType
+from .parser import fetch_catalog, media_url, parse_episode_range
 
-__all__ = ["fetch_catalog", "parse_episode_range", "DownloadManager", "MediaType"]
+__all__ = [
+    "AppConfig",
+    "DownloadManager",
+    "MediaType",
+    "fetch_catalog",
+    "load_config",
+    "media_url",
+    "parse_episode_range",
+]
