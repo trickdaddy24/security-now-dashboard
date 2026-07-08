@@ -24,7 +24,18 @@
       </div>
     </div>
     <div class="topbar-right">
-      <button type="button" class="btn icon-btn" id="themeToggle" title="Toggle light/dark theme" aria-label="Toggle theme">◐</button>
+      <label class="theme-picker">
+        <span class="theme-picker-label">Theme</span>
+        <select id="themeSelect" class="theme-select" aria-label="Color theme">
+          <option value="dark">Terminal</option>
+          <option value="light">Daylight</option>
+          <option value="usa">USA ’26</option>
+          <option value="mexico">México ’26</option>
+          <option value="canada">Canada ’26</option>
+          <option value="brazil">Brazil</option>
+          <option value="argentina">Argentina</option>
+        </select>
+      </label>
       <label class="notify-toggle" title="Browser notification when batch completes">
         <input type="checkbox" id="notifyToggle" />
         <span>Notify</span>

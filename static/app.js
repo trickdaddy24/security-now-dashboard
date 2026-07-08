@@ -39,16 +39,29 @@ function esc(s) {
   })[c]);
 }
 
-// Theme
+// Theme — dark, daylight, + 5 FIFA ’26 country palettes
+const THEMES = ["dark", "light", "usa", "mexico", "canada", "brazil", "argentina"];
+
 function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("sn-theme", theme);
+  const t = THEMES.includes(theme) ? theme : "dark";
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem("sn-theme", t);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--green").trim();
+    if (accent) meta.setAttribute("content", accent);
+  }
+  const sel = $("themeSelect");
+  if (sel && sel.value !== t) sel.value = t;
 }
-applyTheme(localStorage.getItem("sn-theme") || "dark");
-$("themeToggle")?.addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-  applyTheme(next);
-});
+
+const savedTheme = localStorage.getItem("sn-theme");
+applyTheme(savedTheme || "dark");
+const themeSelect = $("themeSelect");
+if (themeSelect) {
+  themeSelect.value = document.documentElement.dataset.theme;
+  themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+}
 
 // Notifications
 const notifyToggle = $("notifyToggle");
