@@ -28,6 +28,7 @@ from .metadata import update_sidecar
 from .models import DownloadJob, DownloadTask, JobStatus, MediaType
 from .logging_config import log_download_event
 from .parser import media_url
+from .paths import media_rel_path
 
 log = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ def _download_error_message(job: DownloadJob, status_code: int | None, exc: Exce
     if status_code == 404:
         if job.media in _VIDEO_MEDIA:
             return (
-                f"HTTP 404 — TWiT video for episode {job.episode} is not on the CDN yet "
-                f"(video often publishes days after audio). Try Audio HQ only."
+                f"HTTP 404 — TWiT video for episode {job.episode} not found "
+                f"(may publish after audio). Audio HQ from GRC usually works first."
             )
         return f"HTTP 404 — {job.media.value} for episode {job.episode} not found at source"
     if status_code:
@@ -109,7 +110,9 @@ class DownloadManager:
 
     def _local_next_episode(self) -> int | None:
         highest = 0
-        for path in self.download_dir.iterdir():
+        for path in self.download_dir.rglob("*"):
+            if not path.is_file() or path.name.startswith("."):
+                continue
             if path.suffix == ".json" and path.name.endswith(".meta.json"):
                 m = EPISODE_RE.search(path.name)
                 if m:
@@ -134,12 +137,17 @@ class DownloadManager:
         tasks: list[DownloadTask] = []
         for ep in episodes:
             for media in media_types:
-                filename = build_filename(
+                basename = build_filename(
                     ep,
                     media,
                     title=titles.get(ep, ""),
                     date_label=dates.get(ep, ""),
                     fmt=fmt,
+                )
+                filename = media_rel_path(
+                    ep,
+                    basename,
+                    episode_folders=self.config.episode_folders,
                 )
                 tasks.append(
                     DownloadTask(
@@ -433,6 +441,7 @@ class DownloadManager:
     async def _download_one(self, job_id: str) -> None:
         job = self.jobs[job_id]
         dest = self.download_dir / job.filename
+        dest.parent.mkdir(parents=True, exist_ok=True)
         part = dest.with_suffix(dest.suffix + ".part")
 
         job.status = JobStatus.RUNNING
@@ -590,6 +599,7 @@ class DownloadManager:
             filename=job.filename,
             url=job.url,
             file_path=dest,
+            episode_folders=self.config.episode_folders,
         )
         await self._emit("job_updated", {"job": job.to_dict()})
         if self._batch_id:

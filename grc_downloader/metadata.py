@@ -6,9 +6,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .paths import media_rel_path
 
-def sidecar_path(download_dir: Path, episode: int) -> Path:
-    return download_dir / f"sn-{episode:04d}.meta.json"
+
+def sidecar_path(download_dir: Path, episode: int, *, episode_folders: bool = True) -> Path:
+    rel = media_rel_path(episode, f"sn-{episode:04d}.meta.json", episode_folders=episode_folders)
+    return download_dir / rel
 
 
 def file_sha256(path: Path) -> str:
@@ -29,8 +32,10 @@ def update_sidecar(
     filename: str,
     url: str,
     file_path: Path,
+    episode_folders: bool = True,
 ) -> dict[str, Any]:
-    path = sidecar_path(download_dir, episode)
+    path = sidecar_path(download_dir, episode, episode_folders=episode_folders)
+    path.parent.mkdir(parents=True, exist_ok=True)
     data: dict[str, Any] = {}
     if path.is_file():
         try:

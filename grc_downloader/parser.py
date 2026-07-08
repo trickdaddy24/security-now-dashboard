@@ -18,14 +18,20 @@ USER_AGENT = "SecurityNowDashboard/1.0 (+fork of GRC-Downloader concept)"
 def media_url(episode: int, media: MediaType) -> str:
     ep = f"{episode:04d}"
     base = "https://www.grc.com/sn"
-    video_base = f"https://cdn.twit.tv/video/sn/sn{episode}/sn{episode}"
+    # TWiT retired cachefly _hq/_hd/_lq URLs; video is Megaphone → 1080p H.264 only.
+    video_sn = f"sn{episode}"
+    video_file = f"{video_sn}_h264m_1920x1080.mp4"
+    video_url = (
+        f"https://pscrb.fm/rss/p/mgln.ai/e/294/cdn.twit.tv/video/sn/"
+        f"{video_sn}/{video_file}"
+    )
     mapping = {
         MediaType.AUDIO_HQ: f"https://media.grc.com/sn/sn-{ep}.mp3",
         MediaType.AUDIO_LQ: f"https://media.grc.com/sn/sn-{ep}-lq.mp3",
         MediaType.AUDIO_TWIT: f"https://cdn.twit.tv/audio/sn/sn{episode}/sn{episode}.mp3",
-        MediaType.VIDEO_HD: f"{video_base}_hd.mp4",
-        MediaType.VIDEO_HQ: f"{video_base}_hq.mp4",
-        MediaType.VIDEO_LQ: f"{video_base}_lq.mp4",
+        MediaType.VIDEO_HD: video_url,
+        MediaType.VIDEO_HQ: video_url,
+        MediaType.VIDEO_LQ: video_url,
         MediaType.TRANSCRIPT_TXT: f"{base}/sn-{ep}.txt",
         MediaType.TRANSCRIPT_PDF: f"{base}/sn-{ep}.pdf",
         MediaType.TRANSCRIPT_HTML: f"{base}/sn-{ep}.htm",

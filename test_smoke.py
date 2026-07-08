@@ -46,8 +46,8 @@ def test_episode_range() -> None:
 
 def test_media_urls() -> None:
     assert media_url(1086, MediaType.AUDIO_HQ).endswith("sn-1086.mp3")
-    assert media_url(1086, MediaType.VIDEO_HD).endswith("sn1086_hd.mp4")
-    assert media_url(42, MediaType.VIDEO_LQ).endswith("sn42_lq.mp4")
+    assert "sn1086_h264m_1920x1080.mp4" in media_url(1086, MediaType.VIDEO_HD)
+    assert "pscrb.fm" in media_url(42, MediaType.VIDEO_LQ)
 
 
 def test_filename_presets() -> None:

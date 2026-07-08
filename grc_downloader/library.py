@@ -112,7 +112,7 @@ def _classify_file(path: Path) -> tuple[int | None, str | None]:
 
 def _load_sidecars(download_dir: Path) -> dict[int, dict[str, Any]]:
     out: dict[int, dict[str, Any]] = {}
-    for path in download_dir.glob("sn-*.meta.json"):
+    for path in download_dir.glob("**/sn-*.meta.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             ep = int(data.get("episode", 0))
@@ -128,7 +128,7 @@ def scan_library(download_dir: Path) -> list[EpisodeEntry]:
     sidecars = _load_sidecars(download_dir)
     episodes: dict[int, EpisodeEntry] = {}
 
-    for path in download_dir.iterdir():
+    for path in download_dir.rglob("*"):
         if not path.is_file() or path.name.startswith("."):
             continue
         if path.name.endswith(".meta.json") or path.suffix == ".part":
@@ -157,8 +157,12 @@ def scan_library(download_dir: Path) -> list[EpisodeEntry]:
             except OSError:
                 checksum_ok = False
 
+        try:
+            rel_name = str(path.relative_to(download_dir))
+        except ValueError:
+            rel_name = path.name
         entry.files[media] = FileEntry(
-            filename=path.name,
+            filename=rel_name.replace("\\", "/"),
             media=media,
             bytes=path.stat().st_size,
             sha256=expected_hash,

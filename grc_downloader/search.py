@@ -42,7 +42,7 @@ def index_transcripts(download_dir: Path, db_path: Path | None = None) -> dict[s
     conn.execute("DELETE FROM transcripts")
 
     indexed = 0
-    for path in download_dir.glob("*.txt"):
+    for path in download_dir.glob("**/*.txt"):
         if path.name.endswith(".meta.json"):
             continue
         ep = _episode_from_name(path.name)
@@ -57,7 +57,9 @@ def index_transcripts(download_dir: Path, db_path: Path | None = None) -> dict[s
         except OSError:
             continue
         title = f"Episode {ep}"
-        meta_path = download_dir / f"sn-{ep:04d}.meta.json"
+        meta_path = next(download_dir.glob(f"**/sn-{ep:04d}.meta.json"), None)
+        if meta_path is None:
+            meta_path = download_dir / f"sn-{ep:04d}.meta.json"
         if meta_path.is_file():
             try:
                 meta = json.loads(meta_path.read_text(encoding="utf-8"))

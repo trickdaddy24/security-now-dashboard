@@ -37,6 +37,7 @@ class AppConfig:
     log_file: Path | None = None
     part_cleanup_days: int = 7
     require_download_lock: bool = True
+    episode_folders: bool = True
 
     def resolve_history_path(self) -> Path:
         if self.history_file:
@@ -176,6 +177,8 @@ def load_config() -> AppConfig:
         cfg.part_cleanup_days = int(env)
     if env := os.getenv("SN_REQUIRE_DOWNLOAD_LOCK"):
         cfg.require_download_lock = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_EPISODE_FOLDERS"):
+        cfg.episode_folders = env.lower() not in ("0", "false", "no")
     if env := os.getenv("SN_PUBLIC_URL"):
         if not cfg.rss_base_url:
             cfg.rss_base_url = env
