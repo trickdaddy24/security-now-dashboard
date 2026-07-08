@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd /opt/security-now-dashboard
-DISCORD="$(grep '^DISCORD_WEBHOOK_URL=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
-TG_TOKEN="$(grep '^TELEGRAM_BOT_TOKEN=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
-TG_CHAT="$(grep '^TELEGRAM_CHAT_ID=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
+DISCORD="$(grep '^DISCORD_WEBHOOK_URL=' ~/notifier/.env | cut -d= -f2- | tr -d "'\"")"
+TG_TOKEN="$(python3 -c "import re, pathlib; t=pathlib.Path.home().joinpath('notifier/.env').read_text(); m=re.search(r'^TELEGRAM_BOT_TOKEN=(.*)$', t, re.M); print(m.group(1).strip().strip(\"'\").strip('\"') if m else '')")"
+TG_CHAT="$(python3 -c "import re, pathlib; t=pathlib.Path.home().joinpath('notifier/.env').read_text(); m=re.search(r'^TELEGRAM_CHAT_ID=(.*)$', t, re.M); print(m.group(1).strip().strip(\"'\").strip('\"') if m else '')")"
 if [[ -f .env.production ]] && grep -q '^SN_API_KEY=' .env.production; then
   API_KEY="$(grep '^SN_API_KEY=' .env.production | cut -d= -f2-)"
 else
