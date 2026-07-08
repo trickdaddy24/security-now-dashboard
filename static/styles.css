@@ -568,6 +568,41 @@ a { color: var(--cyan); }
   width: 100%;
 }
 
+#panel-downloads.tab-panel.active {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.downloads-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.dashboard-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
+.catalog-in-dashboard {
+  flex: 0 0 auto;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.media-source-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.media-source-hint strong {
+  color: var(--green);
+  font-weight: 600;
+}
+
 .layout:has(.tab-panel.active) {
   display: block;
   padding-top: 1rem;
@@ -1287,11 +1322,27 @@ select {
 
 .episode-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 0.5rem;
-  max-height: 280px;
+  max-height: 22vh;
   overflow-y: auto;
   margin-top: 0.5rem;
+}
+
+.episode-grid.has-period {
+  max-height: 38vh;
+}
+
+.episode-grid.has-many {
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+
+.episode-grid.has-period.has-many {
+  max-height: 48vh;
+}
+
+.ep-card.in-range {
+  border-color: var(--accent-border);
 }
 
 .ep-card {

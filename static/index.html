@@ -86,9 +86,10 @@
 
           <fieldset class="media-grid">
             <legend>Media</legend>
+            <p class="muted media-source-hint">GRC and TWiT are different hosts for the same episode (~75 MB) — pick <strong>one</strong> audio source, not both.</p>
             <div class="media-toolbar">
-              <button type="button" class="chip-btn" data-media="audio_hq" data-size="~75 MB">Audio HQ</button>
-              <button type="button" class="chip-btn" data-media="audio_twit" data-size="~75 MB">TWiT audio</button>
+              <button type="button" class="chip-btn" data-media="audio_hq" data-size="GRC · ~75 MB">GRC audio</button>
+              <button type="button" class="chip-btn" data-media="audio_twit" data-size="TWiT · ~75 MB">TWiT audio</button>
               <button type="button" class="chip-btn" data-media="video_hd" data-size="~2 GB">Video HD</button>
               <button type="button" class="chip-btn" data-media="transcript_txt" data-size="~200 KB">Transcript .txt</button>
               <button type="button" class="chip-btn" data-media="transcript_pdf" data-size="~400 KB">Transcript .pdf</button>
@@ -132,8 +133,10 @@
             <button type="button" class="btn" id="retryBtn">Retry failed</button>
           </div>
         </form>
+      </section>
 
-        <div class="catalog" id="catalog">
+      <section class="panel dashboard downloads-main">
+        <div class="catalog catalog-in-dashboard" id="catalog">
           <div class="catalog-head">
             <h3>Episode picker</h3>
             <div class="catalog-actions">
@@ -144,9 +147,8 @@
           <p class="muted" id="catalogMeta">Loading GRC catalog…</p>
           <div class="episode-grid" id="episodeGrid" role="list"></div>
         </div>
-      </section>
 
-      <section class="panel dashboard">
+        <div class="dashboard-jobs">
         <div class="stats" id="stats">
           <div class="stat"><span class="label">Active</span><span class="value" data-k="active">0</span></div>
           <div class="stat"><span class="label">Queued</span><span class="value" data-k="queued">0</span></div>
@@ -173,6 +175,7 @@
           <div class="event-log" id="eventLog" role="log" aria-live="polite" aria-label="Application event log">
             <p class="empty">No log events yet.</p>
           </div>
+        </div>
         </div>
       </section>
     </div>

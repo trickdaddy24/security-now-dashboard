@@ -274,7 +274,7 @@ async def catalog() -> dict[str, Any]:
                 "date": e.date_label,
                 "duration": e.duration,
             }
-            for e in episodes[:30]
+            for e in episodes
         ],
     }
 

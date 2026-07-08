@@ -7,6 +7,7 @@ const state = {
   batchWasRunning: false,
   selectedEpisodes: new Set(),
   periodBatch: null,
+  periodFilter: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -98,17 +99,68 @@ async function loadConfig() {
   } catch { /* ignore */ }
 }
 
+function parseEpisodeDateClient(dateStr) {
+  if (!dateStr) return null;
+  const text = String(dateStr).trim();
+  const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  let m = text.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (m) {
+    const mon = months[m[2].slice(0, 3).toLowerCase()];
+    if (mon != null) return new Date(Date.UTC(+m[3], mon, +m[1]));
+  }
+  m = text.match(/^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/);
+  if (m) {
+    const mon = months[m[1].slice(0, 3).toLowerCase()];
+    if (mon != null) return new Date(Date.UTC(+m[3], mon, +m[2]));
+  }
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? null : new Date(parsed);
+}
+
+function periodCutoffClient(period, count) {
+  const now = Date.now();
+  const n = Math.max(1, Number(count) || 1);
+  const unit = String(period || "day").toLowerCase();
+  if (unit.startsWith("week")) return now - n * 7 * 86400000;
+  if (unit.startsWith("month")) return now - n * 30 * 86400000;
+  return now - n * 86400000;
+}
+
+function episodesInPeriodClient(episodes, period, count) {
+  const cutoff = periodCutoffClient(period, count);
+  return (episodes || []).filter((e) => {
+    const d = parseEpisodeDateClient(e.date);
+    return d && d.getTime() >= cutoff;
+  });
+}
+
+function getPickerEpisodes() {
+  const all = state.catalog?.episodes || [];
+  if (state.periodFilter) {
+    return episodesInPeriodClient(all, state.periodFilter.period, state.periodFilter.count);
+  }
+  return all.slice(0, 30);
+}
+
 function refreshCatalogMeta() {
   const data = state.catalog;
   const meta = $("catalogMeta");
   if (!meta || !data?.episodes?.length) return;
+  const visible = getPickerEpisodes();
   const n = state.selectedEpisodes.size;
   const syncOk = data.local_next && data.latest && data.local_next > data.latest;
   const syncBit = syncOk
     ? `up to date through #${data.latest}`
     : `remote #${data.latest}${data.local_next ? ` · local through #${data.local_next - 1}` : ""}`;
   const selBit = n ? ` · ${n} selected` : " · click to select";
-  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · next #${data.local_next}` : ""} · ${syncBit}${selBit}`;
+  let filterBit = "";
+  if (state.periodFilter) {
+    const { period, count } = state.periodFilter;
+    filterBit = ` · showing ${visible.length} in last ${count} ${period}${count === 1 ? "" : "s"}`;
+  } else {
+    filterBit = ` · showing ${visible.length} recent`;
+  }
+  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · next #${data.local_next}` : ""} · ${syncBit}${filterBit}${selBit}`;
 }
 
 function updateEpisodeSelectionUi() {
@@ -128,19 +180,28 @@ function updateEpisodeSelectionUi() {
 }
 
 function renderEpisodeGrid(data) {
-  state.catalog = data;
+  if (data) state.catalog = data;
   const meta = $("catalogMeta");
   const grid = $("episodeGrid");
-  if (!data.episodes?.length) {
-    meta.textContent = "Could not load catalog.";
-    grid.innerHTML = "";
+  const catalog = state.catalog;
+  if (!catalog?.episodes?.length) {
+    if (meta) meta.textContent = "Could not load catalog.";
+    if (grid) grid.innerHTML = "";
     return;
   }
+  const visible = getPickerEpisodes();
+  grid.classList.toggle("has-period", !!state.periodFilter);
+  grid.classList.toggle("has-many", visible.length > 12);
   refreshCatalogMeta();
-  grid.innerHTML = data.episodes.slice(0, 30).map((e) => {
+  if (!visible.length) {
+    grid.innerHTML = "<p class='empty'>No episodes in this time range.</p>";
+    return;
+  }
+  grid.innerHTML = visible.map((e) => {
     const on = state.selectedEpisodes.has(e.number);
+    const inPeriod = state.periodFilter ? " in-range" : "";
     return `
-    <button type="button" class="ep-card${on ? " selected" : ""}" data-ep="${e.number}" role="listitem"
+    <button type="button" class="ep-card${on ? " selected" : ""}${inPeriod}" data-ep="${e.number}" role="listitem"
       aria-pressed="${on ? "true" : "false"}" title="${esc(e.title)}">
       <span class="ep-check" aria-hidden="true">${on ? "✓" : ""}</span>
       <span class="ep-num">#${e.number}</span>
@@ -151,13 +212,28 @@ function renderEpisodeGrid(data) {
   grid.querySelectorAll(".ep-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.periodBatch = null;
+      state.periodFilter = null;
       const ep = Number(btn.dataset.ep);
       if (state.selectedEpisodes.has(ep)) state.selectedEpisodes.delete(ep);
       else state.selectedEpisodes.add(ep);
       updateEpisodeSelectionUi();
+      refreshCatalogMeta();
     });
   });
   updateEpisodeSelectionUi();
+}
+
+function applyPeriodFilter(lockBatch) {
+  const count = Number($("periodCount")?.value || 1);
+  const period = $("periodUnit")?.value || "day";
+  state.periodFilter = { period, count };
+  if (lockBatch) state.periodBatch = { period, count };
+  const visible = getPickerEpisodes();
+  state.selectedEpisodes = new Set(visible.map((e) => e.number));
+  const input = $("episodesInput");
+  if (input) input.value = `last ${count} ${period}${count === 1 ? "" : "s"}`;
+  renderEpisodeGrid();
+  if (lockBatch) runEstimate();
 }
 
 function getSelectedMedia() {
@@ -468,37 +544,43 @@ document.querySelectorAll('#downloadForm input[name="media"]').forEach((el) => {
 });
 syncMediaChips();
 
-$("applyPeriodBtn")?.addEventListener("click", async () => {
+function previewPeriodPicker() {
   const count = Number($("periodCount")?.value || 1);
   const period = $("periodUnit")?.value || "day";
-  state.periodBatch = { period, count };
-  state.selectedEpisodes.clear();
-  updateEpisodeSelectionUi();
+  state.periodFilter = { period, count };
+  state.selectedEpisodes = new Set(getPickerEpisodes().map((e) => e.number));
   const input = $("episodesInput");
   if (input) input.value = `last ${count} ${period}${count === 1 ? "" : "s"}`;
-  await runEstimate();
-});
+  renderEpisodeGrid();
+}
+
+$("applyPeriodBtn")?.addEventListener("click", () => applyPeriodFilter(true));
+
+$("periodCount")?.addEventListener("input", previewPeriodPicker);
+$("periodUnit")?.addEventListener("change", previewPeriodPicker);
 
 $("estimateBtn")?.addEventListener("click", runEstimate);
 
 $("selectAllEpsBtn")?.addEventListener("click", () => {
-  state.periodBatch = null;
-  (state.catalog?.episodes || []).slice(0, 30).forEach((e) => state.selectedEpisodes.add(e.number));
+  getPickerEpisodes().forEach((e) => state.selectedEpisodes.add(e.number));
   updateEpisodeSelectionUi();
 });
 
 $("clearEpsBtn")?.addEventListener("click", () => {
   state.selectedEpisodes.clear();
   state.periodBatch = null;
+  state.periodFilter = null;
   const input = $("episodesInput");
   if (input) input.value = "latest";
-  updateEpisodeSelectionUi();
+  renderEpisodeGrid();
   const line = $("estimateLine");
-  if (line) line.textContent = "Estimated download: —";
+  if (line) line.textContent = "Pick media and episodes, then Estimate.";
 });
 
 $("episodesInput")?.addEventListener("input", () => {
   state.periodBatch = null;
+  state.periodFilter = null;
+  renderEpisodeGrid();
 });
 
 $("cancelBtn")?.addEventListener("click", () => fetch("/api/cancel", { method: "POST" }));
