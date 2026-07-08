@@ -22,17 +22,26 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: "saltbox"
-      # sn.e4z.xyz — HTTP → HTTPS redirect
+      # sn.e4z.xyz — HTTP → HTTPS redirect (no Authelia: e4z.xyz not in Authelia access_control)
       traefik.http.routers.sn-http.entrypoints: "web"
       traefik.http.routers.sn-http.rule: "Host(`sn.e4z.xyz`)"
-      traefik.http.routers.sn-http.middlewares: "globalHeaders@file,redirect-to-https@docker,robotHeaders@file,authelia@docker"
+      traefik.http.routers.sn-http.middlewares: "globalHeaders@file,redirect-to-https@docker,robotHeaders@file"
       traefik.http.routers.sn-http.priority: "20"
       traefik.http.routers.sn-http.service: "sn-http"
       traefik.http.services.sn-http.loadbalancer.server.port: "8787"
-      # sn.e4z.xyz — HTTPS
+      # sn.e4z.xyz — HTTPS (app-level basic auth via SN_AUTH_* in .env.production)
       traefik.http.routers.sn.entrypoints: "websecure"
       traefik.http.routers.sn.rule: "Host(`sn.e4z.xyz`)"
-      traefik.http.routers.sn.middlewares: "globalHeaders@file,secureHeaders@file,robotHeaders@file,authelia@docker"
+      traefik.http.routers.sn.middlewares: "globalHeaders@file,secureHeaders@file,robotHeaders@file"
+      # Public monitoring — no auth (Uptime Kuma / Prometheus)
+      traefik.http.routers.sn-health.entrypoints: "websecure"
+      traefik.http.routers.sn-health.rule: "Host(`sn.e4z.xyz`) && (Path(`/health`) || Path(`/api/health`) || Path(`/metrics`))"
+      traefik.http.routers.sn-health.priority: "30"
+      traefik.http.routers.sn-health.service: "sn"
+      traefik.http.routers.sn-health.tls.certresolver: "cfdns"
+      traefik.http.routers.sn-health.tls.domains[0].main: "e4z.xyz"
+      traefik.http.routers.sn-health.tls.domains[0].sans: "*.e4z.xyz"
+      traefik.http.routers.sn-health.tls.options: "securetls@file"
       traefik.http.routers.sn.priority: "20"
       traefik.http.routers.sn.service: "sn"
       traefik.http.routers.sn.tls.certresolver: "cfdns"
