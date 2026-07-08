@@ -10,6 +10,23 @@ All notable changes to this project are documented here. Format follows
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
 
+## [1.6.0] - 2026-07-08
+
+### Added
+- **FIFA '26 themes** — USA, Mexico, Canada, Brazil, Argentina plus Terminal and Daylight in a top-bar theme dropdown (`sn-theme` in `localStorage`)
+- **Per-episode folders** — `SN_EPISODE_FOLDERS=1`, `grc_downloader/paths.py`, recursive library/search/cleanup scan; `deploy/saltbox/migrate-episode-folders.sh`
+- **Download logging** — structured logs to `SN_LOG_FILE` (e.g. `/var/log/security-now/logs/app.log`)
+- **Saltbox production** — primary URL `https://sn.aaa.stunna.xyz` (Authelia), Plex mount at `/mnt/local/Media/grc`, `deploy/saltbox/CLOUDFLARE-ACCESS.md`, `add-dns-sn-aaa.sh`
+
+### Changed
+- **TWiT video URLs** — Megaphone CDN (`pscrb.fm/...`) replaces retired `cdn.twit.tv` `_hq.mp4` links (~2–3 GB downloads work again)
+- **Media serving** — `/media/{file_path:path}` and encoded `mediaUrl()` for nested paths like `sn-1086/sn-1086.mp3`; RSS enclosure URLs updated
+- **Daylight theme** — improved contrast and CSS variables
+- **Saltbox hardening** — port 8787 closed (`ports: !reset null`), `SN_DEV_MODE=1` behind Authelia; `sn.e4z.xyz` redirects to `sn.aaa.stunna.xyz` (health endpoints stay public on e4z)
+
+### Fixed
+- Library MP3 playback (silent player, missing timestamp) for files stored in per-episode subfolders
+
 ## [1.5.0] - 2026-07-08
 
 ### Added
@@ -115,7 +132,9 @@ All notable changes to this project are documented here. Format follows
 - Docker image and `docker-compose.yml` with health check
 - Project documentation suite (README, ROADMAP, CONTRIBUTING, LICENSE)
 
-[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.4.0
 [1.3.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.3.0
 [1.2.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.2.0

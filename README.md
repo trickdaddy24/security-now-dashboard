@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.5.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.6.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -424,6 +424,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.6.0** | 2026-07-08 | Production polish — Authelia deploy, Plex mount, TWiT video fix, episode folders, library playback, FIFA themes |
 | **1.5.0** | 2026-07-08 | Phase 5 — Saltbox deploy, auth, watcher, Prometheus, integrations |
 | **1.4.0** | 2026-07-08 | Phase 4 — episode picker, ETA/sparklines, insights, theme, PWA |
 | **1.3.0** | 2026-07-08 | Phase 3 — library scan, RSS feeds, transcript search |
