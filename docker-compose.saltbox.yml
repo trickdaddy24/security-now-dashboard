@@ -1,0 +1,47 @@
+# Saltbox / Traefik overlay — no published ports, external saltbox network.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.saltbox.yml up -d
+#
+# Set SN_PUBLIC_URL=https://sn.yourdomain.com for RSS enclosures and OPML export.
+# Put Authelia forward-auth on the Traefik router (see deploy/traefik-labels.example.yaml).
+
+services:
+  security-now-dashboard:
+    ports: []
+    networks:
+      - saltbox
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    environment:
+      - SN_DEV_MODE=0
+      - SN_LOG_JSON=1
+      - SN_WATCHER_ENABLED=1
+      - SN_WATCHER_INTERVAL_HOURS=6
+      # - SN_AUTH_USER=
+      # - SN_AUTH_PASSWORD=
+      # - SN_API_KEY=
+      # - SN_NOTIFIER_WEBHOOK=
+      # - SN_DISCORD_WEBHOOK=
+      # - SN_PUBLIC_URL=https://sn.example.com
+    volumes:
+      - /path/on/host/security-now:/data/downloads
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sn-dashboard.rule=Host(`sn.example.com`)
+      - traefik.http.routers.sn-dashboard.entrypoints=websecure
+      - traefik.http.routers.sn-dashboard.tls.certresolver=letsencrypt
+      - traefik.http.services.sn-dashboard.loadbalancer.server.port=8787
+      # Authelia forward-auth (adjust middleware name to your Saltbox stack):
+      # - traefik.http.routers.sn-dashboard.middlewares=authelia@docker
+
+networks:
+  saltbox:
+    external: true

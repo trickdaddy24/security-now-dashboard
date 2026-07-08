@@ -23,6 +23,7 @@ jobs:
       - run: python test_library.py
       - run: python test_insights.py
       - run: python test_dashboard_static.py
+      - run: python test_phase5.py
       - name: Integration (main only)
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.11'
         run: python test_integration.py

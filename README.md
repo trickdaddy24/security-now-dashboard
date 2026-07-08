@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.4.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -49,7 +49,9 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
 - **Headless CLI** — `sn-download` / `python -m grc_downloader` with GRC-Downloader.sh flag parity
 - **REST API** — start batches, cancel, estimate, history, poll status, fetch catalog, webhooks
 - **Docker-ready** — dashboard container or one-shot CLI via `docker compose run`
-- **Upstream parity (planned)** — RSS feeds, transcript search — see [ROADMAP.md](ROADMAP.md)
+- **Homelab production** — Saltbox/Traefik compose, basic auth, API key, episode watcher, Prometheus `/metrics`
+- **Integrations** — Notifier/Discord webhooks, Plex scan hint, Kodi `.strm`, OPML export for podcast apps
+- **Reliability** — GRC circuit breaker, HTTP retry, stale `.part` cleanup, single-writer download lock
 
 ## Architecture
 
@@ -118,6 +120,7 @@ Dashboard: **http://localhost:8787** · Downloads persist in `./data/downloads/`
 ```bash
 python test_smoke.py
 python test_cli.py
+python test_phase5.py
 python test_integration.py   # optional network test (show notes download)
 ```
 
@@ -220,13 +223,31 @@ default = ["audio_hq"]
 | `SN_SKIP_INTEGRATION` | No | — | Set `1` to skip network integration test in CI |
 | `SN_HOST` | No | `127.0.0.1` | Bind host when using `python app.py` directly |
 | `SN_PORT` | No | `8787` | Bind port when using `python app.py` directly |
+| `SN_AUTH_USER` / `SN_AUTH_PASSWORD` | No | — | HTTP basic auth (disable with `SN_DEV_MODE=1`) |
+| `SN_API_KEY` | No | — | Automation header `X-SN-API-Key` for POST `/api/*` |
+| `SN_DEV_MODE` | No | `true` | Set `0` in production to enforce auth + lock CORS |
+| `SN_RATE_LIMIT` | No | `30` | Max `POST /api/download` per minute per IP/key |
+| `SN_WATCHER_ENABLED` | No | `false` | Poll GRC and auto-queue new episodes |
+| `SN_WATCHER_INTERVAL_HOURS` | No | `6` | Watcher poll interval |
+| `SN_NOTIFIER_WEBHOOK` | No | — | Notifier/Telegram webhook on new episode / batch done |
+| `SN_DISCORD_WEBHOOK` | No | — | Discord webhook on batch complete |
+| `SN_PUBLIC_URL` | No | — | Public base URL for RSS enclosures and OPML |
+| `SN_LOG_JSON` | No | `false` | Structured JSON logs to stdout (Loki/Vector) |
+| `SN_LOG_LEVEL` | No | `INFO` | Log level |
+| `SN_PART_CLEANUP_DAYS` | No | `7` | Delete stale `.part` files older than N days on startup |
+| `SN_REQUIRE_DOWNLOAD_LOCK` | No | `true` | Exclusive file lock — one writer per download dir |
 
 ## API Reference
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/` | Dashboard UI |
-| `GET` | `/health` | Health check (`{"status":"ok"}`) |
+| `GET` | `/health` | Health check (`{"status":"ok"}`) — public (no auth) |
+| `GET` | `/metrics` | Prometheus metrics — public |
+| `GET` | `/api/watcher/status` | Watcher state + GRC circuit breaker |
+| `GET` | `/api/integrations/opml` | OPML export for local RSS feeds |
+| `POST` | `/api/integrations/kodi` | Export Kodi `.strm` files for local MP3s |
+| `POST` | `/api/integrations/plex-hint` | Write Plex library scan hint file |
 | `GET` | `/api/config` | Runtime settings + disk free bytes |
 | `GET` | `/api/catalog` | Latest episode + recent archive entries |
 | `GET` | `/api/status` | Full job snapshot (counts + all jobs) |
@@ -333,25 +354,31 @@ Default `docker-compose.yml` publishes port **8787**. Bind to your LAN IP or put
 
 ### Saltbox (Traefik)
 
-Pattern matches other homelab apps (Notifier, MovieNexus):
+Use the Saltbox overlay (matches Notifier / MovieNexus):
 
-1. Remove the `ports:` block from `docker-compose.yml`
-2. Attach the external `saltbox` network
-3. Add Traefik labels for your subdomain, e.g. `sn.yourdomain.com`
-4. Mount a persistent volume for `/data/downloads`
-
-Example labels (adjust domain and cert resolver):
-
-```yaml
-labels:
-  - traefik.enable=true
-  - traefik.http.routers.sn-dashboard.rule=Host(`sn.example.com`)
-  - traefik.http.routers.sn-dashboard.entrypoints=websecure
-  - traefik.http.routers.sn-dashboard.tls.certresolver=letsencrypt
-  - traefik.http.services.sn-dashboard.loadbalancer.server.port=8787
+```bash
+docker compose -f docker-compose.yml -f docker-compose.saltbox.yml up -d --build
 ```
 
-> **Note:** v1.0.0 has no built-in authentication. Do not expose publicly without Authelia, basic auth, or VPN.
+Edit `docker-compose.saltbox.yml`:
+
+1. Set `Host(\`sn.yourdomain.com\`)` Traefik rule
+2. Bind-mount your persistent download path (`/data/downloads`)
+3. Set `SN_PUBLIC_URL=https://sn.yourdomain.com` for RSS/OPML
+4. Add Authelia middleware label (commented example in file)
+5. Optional: `SN_AUTH_USER` / `SN_AUTH_PASSWORD`, `SN_API_KEY`, `SN_NOTIFIER_WEBHOOK`
+
+Production env (set in overlay):
+
+- `SN_DEV_MODE=0` — enforce auth + CORS lockdown
+- `SN_WATCHER_ENABLED=1` — auto-download new episodes
+- `SN_LOG_JSON=1` — structured logs for Vector/Loki
+
+**Monitoring:** scrape `GET /metrics` with Prometheus; import `deploy/grafana/sn-dashboard.json`.
+
+**Backup:** `deploy/backup/backup-sn.sh /data/downloads /backups/sn` (cron nightly).
+
+> **Note:** Use Authelia forward-auth on Traefik and/or `SN_AUTH_*` — do not expose the dashboard publicly without protection.
 
 ## Backup & Recovery
 
@@ -391,12 +418,13 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 | **2** | CLI & automation — bash parity, cron, JSON output | Shipped (v1.2.0) |
 | **3** | Library & discovery — RSS, transcript search, gap reports | Shipped (v1.3.0) |
 | **4** | Dashboard & UX — library browser, charts, mobile | Shipped (v1.4.0) |
-| **5** | Homelab production — Saltbox, watcher, Notifier hooks | Planned |
+| **5** | Homelab production — Saltbox, watcher, Notifier hooks | Shipped (v1.5.0) |
 
 ## Version History
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.5.0** | 2026-07-08 | Phase 5 — Saltbox deploy, auth, watcher, Prometheus, integrations |
 | **1.4.0** | 2026-07-08 | Phase 4 — episode picker, ETA/sparklines, insights, theme, PWA |
 | **1.3.0** | 2026-07-08 | Phase 3 — library scan, RSS feeds, transcript search |
 | **1.2.0** | 2026-07-08 | Phase 2 — headless CLI, systemd/docker recipes, API hardening |

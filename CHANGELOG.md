@@ -7,9 +7,27 @@ All notable changes to this project are documented here. Format follows
 
 ### Planned
 - Playwright E2E dashboard tests
-- Optional dashboard authentication for public deploys
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
+
+## [1.5.0] - 2026-07-08
+
+### Added
+- **Saltbox deploy** — `docker-compose.saltbox.yml` (Traefik, `saltbox` network, resource limits, read-only root)
+- **Security** — optional HTTP basic auth, `X-SN-API-Key`, rate limit on `POST /api/download`, CORS lockdown (`SN_DEV_MODE=0`)
+- **Episode watcher** — poll GRC every N hours, auto-queue new episodes (`SN_WATCHER_ENABLED`)
+- **Integrations** — Notifier/Discord webhooks, Plex scan hint, Kodi `.strm` export, OPML for RSS feeds
+- **Observability** — `GET /metrics` (Prometheus), JSON stdout logging, Grafana dashboard JSON
+- **Reliability** — GRC circuit breaker, HTTP retry with backoff, stale `.part` cleanup, download-dir file lock
+- `GET /api/watcher/status`, `GET /api/integrations/opml`, `POST /api/integrations/kodi`, `POST /api/integrations/plex-hint`
+- Insights tab: watcher status line
+- `deploy/backup/backup-sn.sh` nightly backup example
+- Config: `[security]`, `[watcher]`, `[ops]` sections + `SN_*` env vars
+- `test_phase5.py` offline tests
+
+### Changed
+- App lifespan: startup cleanup, optional watcher background task, config reload
+- Downloader: Discord/Notifier on batch complete, stream download retries
 
 ## [1.4.0] - 2026-07-08
 

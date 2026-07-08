@@ -14,6 +14,8 @@ import httpx
 from .config import AppConfig
 from .disk import check_disk_space, free_bytes
 from .filenames import build_filename
+from .integrations import notify_discord, post_webhook, write_plex_hint
+from .lockfile import DownloadDirLock
 from .history import (
     append_history,
     batch_finished_record,
@@ -46,6 +48,8 @@ class DownloadManager:
         self._batch_id: str | None = None
         self._callback_url: str | None = None
         self._cancelled_jobs: set[str] = set()
+        self._dir_lock: DownloadDirLock | None = None
+        self._errors_total: int = 0
 
     def snapshot(self) -> dict[str, Any]:
         jobs = [self.jobs[jid].to_dict() for jid in self._order if jid in self.jobs]
@@ -148,6 +152,22 @@ class DownloadManager:
             return []
         return [j for j in data.get("jobs", []) if j.get("status") == JobStatus.FAILED.value]
 
+    def _acquire_dir_lock(self) -> tuple[bool, str]:
+        if not self.config.require_download_lock:
+            return True, ""
+        lock = DownloadDirLock(self.download_dir)
+        if not lock.acquire():
+            holder = lock.holder_pid()
+            hint = f" (PID {holder})" if holder else ""
+            return False, f"Another instance holds the download lock{hint}"
+        self._dir_lock = lock
+        return True, ""
+
+    def _release_dir_lock(self) -> None:
+        if self._dir_lock:
+            self._dir_lock.release()
+            self._dir_lock = None
+
     async def enqueue(
         self,
         episodes: list[int],
@@ -163,6 +183,10 @@ class DownloadManager:
         async with self._lock:
             if self._running:
                 return False, "A download batch is already running"
+
+            ok_lock, lock_err = self._acquire_dir_lock()
+            if not ok_lock:
+                return False, lock_err
 
             if retry_failed:
                 failed = self.load_last_batch_failed()
@@ -327,6 +351,8 @@ class DownloadManager:
             await self._emit("batch_finished")
             if self._callback_url:
                 asyncio.create_task(self._fire_callback(snap))
+            asyncio.create_task(self._notify_batch_complete(snap))
+            self._release_dir_lock()
 
     async def _fire_callback(self, snap: dict[str, Any]) -> None:
         if not self._callback_url:
@@ -336,6 +362,29 @@ class DownloadManager:
                 await client.post(self._callback_url, json=snap)
         except Exception:
             pass
+
+    async def _notify_batch_complete(self, snap: dict[str, Any]) -> None:
+        counts = snap.get("counts") or {}
+        completed = counts.get("completed", 0)
+        failed = counts.get("failed", 0)
+        msg = f"Batch {snap.get('batch_id', '?')}: {completed} completed, {failed} failed"
+        payload = {"event": "batch_finished", "batch_id": snap.get("batch_id"), "counts": counts}
+        await post_webhook(
+            self.config.notifier_webhook_url,
+            payload,
+            verify_ssl=self.config.verify_ssl,
+        )
+        await notify_discord(
+            self.config.discord_webhook_url,
+            title="Security Now — batch finished",
+            description=msg,
+            verify_ssl=self.config.verify_ssl,
+        )
+        if completed > 0:
+            write_plex_hint(
+                self.download_dir,
+                f"Plex scan suggested after {completed} new file(s) in {self.download_dir}",
+            )
 
     async def _download_one(self, job_id: str) -> None:
         job = self.jobs[job_id]
@@ -359,6 +408,40 @@ class DownloadManager:
                 follow_redirects=True,
                 verify=self.config.verify_ssl,
             ) as client:
+                await self._stream_download(client, job, job_id, dest, part, headers, resume_from)
+                if job.status in (JobStatus.COMPLETED, JobStatus.CANCELLED):
+                    return
+
+            part.rename(dest)
+            job.status = JobStatus.COMPLETED
+            job.speed_bps = 0.0
+            job.finished_at = time.time()
+            await self._finish_job(job, dest)
+
+        except Exception as exc:  # noqa: BLE001
+            self._errors_total += 1
+            job.status = JobStatus.FAILED
+            job.error = str(exc)
+            job.finished_at = time.time()
+            await self._emit("job_updated", {"job": job.to_dict()})
+            if self._batch_id:
+                append_history(self.history_path, job_finished_record(self._batch_id, job.to_dict()))
+
+    async def _stream_download(
+        self,
+        client: httpx.AsyncClient,
+        job: DownloadJob,
+        job_id: str,
+        dest: Path,
+        part: Path,
+        headers: dict[str, str],
+        resume_from: int,
+    ) -> None:
+        delay = 1.0
+        max_attempts = 3
+        last_exc: Exception | None = None
+        for attempt in range(max_attempts):
+            try:
                 async with client.stream("GET", job.url, headers=headers) as resp:
                     if resp.status_code == 416:
                         if part.exists():
@@ -408,20 +491,15 @@ class DownloadManager:
                                 last_tick = now
                                 last_bytes = job.bytes_downloaded
                                 await self._emit("job_updated", {"job": job.to_dict()})
-
-            part.rename(dest)
-            job.status = JobStatus.COMPLETED
-            job.speed_bps = 0.0
-            job.finished_at = time.time()
-            await self._finish_job(job, dest)
-
-        except Exception as exc:  # noqa: BLE001
-            job.status = JobStatus.FAILED
-            job.error = str(exc)
-            job.finished_at = time.time()
-            await self._emit("job_updated", {"job": job.to_dict()})
-            if self._batch_id:
-                append_history(self.history_path, job_finished_record(self._batch_id, job.to_dict()))
+                return
+            except (httpx.HTTPError, httpx.TimeoutException) as exc:
+                last_exc = exc
+                if attempt >= max_attempts - 1:
+                    break
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30.0)
+        if last_exc:
+            raise last_exc
 
     async def _finish_job(self, job: DownloadJob, dest: Path) -> None:
         update_sidecar(

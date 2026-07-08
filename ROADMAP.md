@@ -14,7 +14,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 | **2** | CLI & automation — bash-script parity, scripting | **Shipped** (v1.2.0) |
 | **3** | Library & discovery — RSS, search, media library | **Shipped** (v1.3.0) |
 | **4** | Dashboard & UX — polish, browsing, insights | **Shipped** (v1.4.0) |
-| **5** | Homelab production — Saltbox, auth, watchers, integrations | Planned |
+| **5** | Homelab production — Saltbox, auth, watchers, integrations | **Shipped** (v1.5.0) |
 
 ---
 
@@ -178,45 +178,47 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 **Why:** You deploy Notifier and MovieNexus on `138.201.28.235`; this should fit the same playbook.
 
+**Status:** Shipped in **v1.5.0** (July 2026).
+
 ### Saltbox / Traefik deployment
 
-- [ ] `docker-compose.saltbox.yml` with external `saltbox` network (no published ports)
-- [ ] Traefik labels template (`sn.yourdomain.com`, TLS, Authelia middleware)
-- [ ] Persistent volume docs for `/data/downloads` on host bind vs named volume
-- [ ] Resource limits (CPU/memory) for download bursts
-- [ ] Read-only root filesystem where practical; tmp for `.part` files
+- [x] `docker-compose.saltbox.yml` with external `saltbox` network (no published ports)
+- [x] Traefik labels template (`sn.yourdomain.com`, TLS, Authelia middleware)
+- [x] Persistent volume docs for `/data/downloads` on host bind vs named volume
+- [x] Resource limits (CPU/memory) for download bursts
+- [x] Read-only root filesystem where practical; tmp for `.part` files
 
 ### Security & access
 
-- [ ] Optional HTTP basic auth (`SN_AUTH_USER` / `SN_AUTH_PASSWORD`)
-- [ ] Document Authelia forward-auth pattern (match Notifier)
-- [ ] Rate limit `POST /api/download` (per IP / per API key)
-- [ ] API key header for automation (`X-SN-API-Key`)
-- [ ] CORS lockdown when not in dev mode
+- [x] Optional HTTP basic auth (`SN_AUTH_USER` / `SN_AUTH_PASSWORD`)
+- [x] Document Authelia forward-auth pattern (match Notifier)
+- [x] Rate limit `POST /api/download` (per IP / per API key)
+- [x] API key header for automation (`X-SN-API-Key`)
+- [x] CORS lockdown when not in dev mode
 
 ### Watchers & integrations
 
-- [ ] **New episode watcher** — poll GRC every N hours; auto-queue `latest` when # bumps
-- [ ] **Notifier integration** — webhook/Telegram when new episode downloaded or watcher fires
-- [ ] **Discord webhook** on batch complete (success/fail summary)
-- [ ] Plex: optional post-download hook — hint path for podcast library scan
-- [ ] Kodi: `sn.strm` or playlist export for local MP3 paths
-- [ ] Immich irrelevant; **Podcast apps**: OPML export pointing at Phase 3 RSS
+- [x] **New episode watcher** — poll GRC every N hours; auto-queue `latest` when # bumps
+- [x] **Notifier integration** — webhook/Telegram when new episode downloaded or watcher fires
+- [x] **Discord webhook** on batch complete (success/fail summary)
+- [x] Plex: optional post-download hook — hint path for podcast library scan
+- [x] Kodi: `sn.strm` or playlist export for local MP3 paths
+- [x] **Podcast apps**: OPML export pointing at Phase 3 RSS
 
 ### Observability & ops
 
-- [ ] Prometheus metrics: `sn_jobs_active`, `sn_bytes_total`, `sn_last_episode_number`, `sn_errors_total`
-- [ ] Grafana dashboard JSON (optional import)
-- [ ] Structured JSON logging to stdout for Loki/Vector (you run Vector on Saltbox)
-- [ ] Uptime Kuma / healthcheck.io monitor on `/health`
-- [ ] Backup cron example: nightly `tar.gz` of download dir + RSS + search index
+- [x] Prometheus metrics: `sn_jobs_active`, `sn_bytes_total`, `sn_last_episode_number`, `sn_errors_total`
+- [x] Grafana dashboard JSON (optional import)
+- [x] Structured JSON logging to stdout for Loki/Vector (you run Vector on Saltbox)
+- [x] Uptime Kuma / healthcheck.io monitor on `/health`
+- [x] Backup cron example: nightly `tar.gz` of download dir + RSS + search index
 
 ### Reliability
 
-- [ ] Circuit breaker on GRC fetch (like MovieNexus Box Office Mojo pattern)
-- [ ] Retry with exponential backoff on transient HTTP errors
-- [ ] Stale `.part` cleanup job (older than 7 days)
-- [ ] Multi-instance warning: only one writer per download dir (file lock)
+- [x] Circuit breaker on GRC fetch (like MovieNexus Box Office Mojo pattern)
+- [x] Retry with exponential backoff on transient HTTP errors
+- [x] Stale `.part` cleanup job (older than 7 days)
+- [x] Multi-instance warning: only one writer per download dir (file lock)
 
 **Success criteria:** Dashboard at `https://sn.e4z.xyz` (or similar) behind Authelia; new SN episode auto-downloads and pings Telegram via Notifier within an hour of GRC posting.
 

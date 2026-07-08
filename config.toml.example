@@ -29,3 +29,23 @@ limit = 500
 
 [search]
 # db = "./downloads/.sn-search.db"
+
+[security]
+# auth_user = "admin"
+# auth_password = "change-me"
+# api_key = "your-automation-key"
+dev_mode = true
+# rate_limit_per_minute = 30
+# cors_origins = ["https://sn.example.com"]
+
+[watcher]
+enabled = false
+interval_hours = 6
+# notifier_webhook = "https://notifier.example/hooks/..."
+# discord_webhook = "https://discord.com/api/webhooks/..."
+
+[ops]
+log_json = false
+log_level = "INFO"
+part_cleanup_days = 7
+# require_download_lock = true

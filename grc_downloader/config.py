@@ -22,6 +22,20 @@ class AppConfig:
     rss_base_url: str | None = None
     rss_limit: int = 500
     search_db: Path | None = None
+    auth_user: str | None = None
+    auth_password: str | None = None
+    api_key: str | None = None
+    dev_mode: bool = True
+    cors_origins: list[str] = field(default_factory=list)
+    rate_limit_per_minute: int = 30
+    watcher_enabled: bool = False
+    watcher_interval_hours: float = 6.0
+    notifier_webhook_url: str | None = None
+    discord_webhook_url: str | None = None
+    log_json: bool = False
+    log_level: str = "INFO"
+    part_cleanup_days: int = 7
+    require_download_lock: bool = True
 
     def resolve_history_path(self) -> Path:
         if self.history_file:
@@ -76,6 +90,35 @@ def load_config() -> AppConfig:
         search = data.get("search", {})
         if search.get("db"):
             cfg.search_db = Path(search["db"]).expanduser()
+        sec = data.get("security", {})
+        if sec.get("auth_user"):
+            cfg.auth_user = str(sec["auth_user"])
+        if sec.get("auth_password"):
+            cfg.auth_password = str(sec["auth_password"])
+        if sec.get("api_key"):
+            cfg.api_key = str(sec["api_key"])
+        if "dev_mode" in sec:
+            cfg.dev_mode = bool(sec["dev_mode"])
+        if "rate_limit_per_minute" in sec:
+            cfg.rate_limit_per_minute = int(sec["rate_limit_per_minute"])
+        if sec.get("cors_origins"):
+            cfg.cors_origins = list(sec["cors_origins"])
+        watch = data.get("watcher", {})
+        if "enabled" in watch:
+            cfg.watcher_enabled = bool(watch["enabled"])
+        if "interval_hours" in watch:
+            cfg.watcher_interval_hours = float(watch["interval_hours"])
+        if watch.get("notifier_webhook"):
+            cfg.notifier_webhook_url = str(watch["notifier_webhook"])
+        if watch.get("discord_webhook"):
+            cfg.discord_webhook_url = str(watch["discord_webhook"])
+        ops = data.get("ops", {})
+        if "log_json" in ops:
+            cfg.log_json = bool(ops["log_json"])
+        if ops.get("log_level"):
+            cfg.log_level = str(ops["log_level"])
+        if "part_cleanup_days" in ops:
+            cfg.part_cleanup_days = int(ops["part_cleanup_days"])
         break
 
     if env := os.getenv("SN_DOWNLOAD_DIR"):
@@ -102,6 +145,37 @@ def load_config() -> AppConfig:
         cfg.rss_limit = int(env)
     if env := os.getenv("SN_SEARCH_DB"):
         cfg.search_db = Path(env)
+    if env := os.getenv("SN_AUTH_USER"):
+        cfg.auth_user = env
+    if env := os.getenv("SN_AUTH_PASSWORD"):
+        cfg.auth_password = env
+    if env := os.getenv("SN_API_KEY"):
+        cfg.api_key = env
+    if env := os.getenv("SN_DEV_MODE"):
+        cfg.dev_mode = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_CORS_ORIGINS"):
+        cfg.cors_origins = [o.strip() for o in env.split(",") if o.strip()]
+    if env := os.getenv("SN_RATE_LIMIT"):
+        cfg.rate_limit_per_minute = int(env)
+    if env := os.getenv("SN_WATCHER_ENABLED"):
+        cfg.watcher_enabled = env.lower() in ("1", "true", "yes")
+    if env := os.getenv("SN_WATCHER_INTERVAL_HOURS"):
+        cfg.watcher_interval_hours = float(env)
+    if env := os.getenv("SN_NOTIFIER_WEBHOOK"):
+        cfg.notifier_webhook_url = env
+    if env := os.getenv("SN_DISCORD_WEBHOOK"):
+        cfg.discord_webhook_url = env
+    if env := os.getenv("SN_LOG_JSON"):
+        cfg.log_json = env.lower() in ("1", "true", "yes")
+    if env := os.getenv("SN_LOG_LEVEL"):
+        cfg.log_level = env
+    if env := os.getenv("SN_PART_CLEANUP_DAYS"):
+        cfg.part_cleanup_days = int(env)
+    if env := os.getenv("SN_REQUIRE_DOWNLOAD_LOCK"):
+        cfg.require_download_lock = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_PUBLIC_URL"):
+        if not cfg.rss_base_url:
+            cfg.rss_base_url = env
 
     cfg.download_dir.mkdir(parents=True, exist_ok=True)
     return cfg

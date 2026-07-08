@@ -2,40 +2,53 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from grc_downloader.auth import SecurityMiddleware
+from grc_downloader.cleanup import cleanup_stale_parts
 from grc_downloader.config import AppConfig, load_config
 from grc_downloader.disk import check_disk_space, free_bytes
 from grc_downloader.downloader import DownloadManager
 from grc_downloader.client_tokens import claim_token, lookup_token
 from grc_downloader.history import read_batches, read_recent
+from grc_downloader.integrations import export_kodi_strm, export_opml, write_plex_hint
+from grc_downloader.logging_config import setup_json_logging
+from grc_downloader.metrics import render_prometheus
 from grc_downloader.models import MediaType
 from grc_downloader.library import library_summary, scan_library
-from grc_downloader.parser import fetch_catalog, parse_episode_range
+from grc_downloader.parser import GRC_CIRCUIT, fetch_catalog, parse_episode_range
+from grc_downloader.ratelimit import RateLimiter
 from grc_downloader.rss import FEED_NAMES, build_feeds, rss_status
 from grc_downloader.search import index_transcripts, search_index_status, search_transcripts
 from grc_downloader.insights import batch_timeline, library_csv, weekly_downloads
 from grc_downloader.version import get_version
+from grc_downloader.watcher import load_state, run_watcher_loop
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 
-CONFIG: AppConfig = load_config()
+log = logging.getLogger(__name__)
 
+CONFIG: AppConfig = load_config()
 APP_VERSION = get_version()
-app = FastAPI(title="Security Now Dashboard", version=APP_VERSION)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _ws_clients: set[WebSocket] = set()
 _manager: DownloadManager | None = None
+_rate_limiter = RateLimiter(max_per_minute=CONFIG.rate_limit_per_minute)
+_latest_episode: int = 0
+_watcher_task: asyncio.Task[None] | None = None
 
 
 async def _broadcast(message: dict[str, Any]) -> None:
@@ -55,6 +68,100 @@ def get_manager() -> DownloadManager:
     if _manager is None:
         _manager = DownloadManager(CONFIG, broadcast=_broadcast)
     return _manager
+
+
+async def _watcher_enqueue(episode: int, media: list[str]) -> bool:
+    mgr = get_manager()
+    if mgr._running:  # noqa: SLF001
+        return False
+    episodes_meta, _ = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    titles = {e.number: e.title for e in episodes_meta}
+    dates = {e.number: e.date_label for e in episodes_meta}
+    try:
+        media_types = [MediaType(m) for m in media]
+    except ValueError:
+        return False
+    ok, _ = await mgr.enqueue(
+        episodes=[episode],
+        media_types=media_types,
+        titles=titles,
+        dates=dates,
+    )
+    return ok
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global CONFIG, _rate_limiter, _watcher_task, _latest_episode
+
+    CONFIG = load_config()
+    get_manager().config = CONFIG
+    _rate_limiter = RateLimiter(max_per_minute=CONFIG.rate_limit_per_minute)
+
+    if CONFIG.log_json:
+        setup_json_logging(CONFIG.log_level)
+    else:
+        logging.basicConfig(level=getattr(logging, CONFIG.log_level.upper(), logging.INFO))
+
+    removed = cleanup_stale_parts(CONFIG.download_dir, CONFIG.part_cleanup_days)
+    if removed:
+        log.info("Removed %d stale .part file(s)", len(removed))
+
+    try:
+        _, _latest_episode = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    except Exception:
+        log.warning("Could not prefetch GRC catalog on startup")
+
+    if CONFIG.watcher_enabled:
+        _watcher_task = asyncio.create_task(
+            run_watcher_loop(
+                CONFIG.download_dir,
+                _watcher_enqueue,
+                interval_hours=CONFIG.watcher_interval_hours,
+                verify_ssl=CONFIG.verify_ssl,
+                notifier_url=CONFIG.notifier_webhook_url,
+                discord_url=CONFIG.discord_webhook_url,
+                default_media=CONFIG.default_media,
+            )
+        )
+
+    yield
+
+    if _watcher_task:
+        _watcher_task.cancel()
+        try:
+            await _watcher_task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="Security Now Dashboard", version=APP_VERSION, lifespan=lifespan)
+app.add_middleware(
+    SecurityMiddleware,
+    auth_user=CONFIG.auth_user,
+    auth_password=CONFIG.auth_password,
+    api_key=CONFIG.api_key,
+    dev_mode=CONFIG.dev_mode,
+)
+
+if CONFIG.dev_mode and not CONFIG.cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+elif CONFIG.cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CONFIG.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 class StartRequest(BaseModel):
@@ -86,12 +193,16 @@ async def get_config() -> dict[str, Any]:
         "disk_free_bytes": free_bytes(CONFIG.download_dir),
         "rss_base_url": CONFIG.rss_base_url,
         "rss_limit": CONFIG.rss_limit,
+        "watcher_enabled": CONFIG.watcher_enabled,
+        "dev_mode": CONFIG.dev_mode,
     }
 
 
 @app.get("/api/catalog")
 async def catalog() -> dict[str, Any]:
     episodes, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    global _latest_episode
+    _latest_episode = latest
     mgr = get_manager()
     local_next = mgr._local_next_episode()  # noqa: SLF001
     return {
@@ -117,6 +228,17 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/metrics")
+async def metrics() -> Response:
+    mgr = get_manager()
+    body = render_prometheus(
+        mgr.snapshot(),
+        latest_episode=_latest_episode,
+        errors_total=mgr._errors_total,  # noqa: SLF001
+    )
+    return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
 @app.get("/api/status")
 async def status() -> dict[str, Any]:
     return get_manager().snapshot()
@@ -132,6 +254,27 @@ async def history(limit: int = 50) -> dict[str, Any]:
 async def jobs_history(limit: int = 20) -> dict[str, Any]:
     mgr = get_manager()
     return {"batches": read_batches(mgr.history_path, limit=limit)}
+
+
+@app.get("/api/watcher/status")
+async def watcher_status() -> dict[str, Any]:
+    state = load_state(CONFIG.download_dir)
+    latest = _latest_episode
+    if not latest:
+        try:
+            _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+        except Exception:
+            latest = 0
+    last_seen = int(state.get("last_seen", 0))
+    return {
+        "enabled": CONFIG.watcher_enabled,
+        "interval_hours": CONFIG.watcher_interval_hours,
+        "last_seen": last_seen,
+        "latest_remote": latest,
+        "last_check": state.get("last_check"),
+        "last_triggered": state.get("last_triggered"),
+        "circuit": GRC_CIRCUIT.status(),
+    }
 
 
 @app.post("/api/download/estimate")
@@ -161,8 +304,24 @@ def _parse_media(media: list[str] | None) -> list[MediaType]:
     return out
 
 
+def _rate_limit_key(request: Request) -> str:
+    if CONFIG.api_key:
+        key = request.headers.get("X-SN-API-Key", "")
+        if key:
+            return f"key:{key[:8]}"
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
 @app.post("/api/download")
-async def start_download(req: StartRequest) -> dict[str, Any]:
+async def start_download(req: StartRequest, request: Request) -> dict[str, Any]:
+    if not _rate_limiter.allow(_rate_limit_key(request)):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded — try again shortly")
+
     mgr = get_manager()
     if mgr._running and not req.retry_failed:
         return {"ok": False, "error": "A batch is already running"}
@@ -183,6 +342,8 @@ async def start_download(req: StartRequest) -> dict[str, Any]:
             return {"ok": True, "duplicate": True, "batch_id": existing}
 
     episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    global _latest_episode
+    _latest_episode = latest
     titles = {e.number: e.title for e in episodes_meta}
     dates = {e.number: e.date_label for e in episodes_meta}
     local_next = mgr._local_next_episode()
@@ -265,13 +426,23 @@ async def library_export() -> Response:
 async def insights() -> dict[str, Any]:
     mgr = get_manager()
     _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    global _latest_episode
+    _latest_episode = latest
     local = mgr._local_next_episode()  # noqa: SLF001
+    watcher = load_state(CONFIG.download_dir)
     return {
         "timeline": batch_timeline(mgr.history_path, limit=30),
         "weekly": weekly_downloads(mgr.history_path, days=90),
         "latest_remote": latest,
         "local_next": local,
         "sync_ok": (local - 1 >= latest) if local and latest else None,
+        "watcher": {
+            "enabled": CONFIG.watcher_enabled,
+            "interval_hours": CONFIG.watcher_interval_hours,
+            "last_seen": watcher.get("last_seen", 0),
+            "last_check": watcher.get("last_check"),
+            "last_triggered": watcher.get("last_triggered"),
+        },
     }
 
 
@@ -352,6 +523,36 @@ async def rebuild_rss(req: RssRebuildRequest | None = None) -> dict[str, Any]:
         which=which,
     )
     return {"ok": True, **state}
+
+
+@app.get("/api/integrations/opml")
+async def integrations_opml() -> Response:
+    base = CONFIG.rss_base_url or os.getenv("SN_PUBLIC_URL") or str(request_base_url())
+    body = export_opml(base)
+    return Response(
+        content=body,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=security-now.opml"},
+    )
+
+
+def request_base_url() -> str:
+    return os.getenv("SN_PUBLIC_URL", "http://127.0.0.1:8787")
+
+
+@app.post("/api/integrations/kodi")
+async def integrations_kodi() -> dict[str, Any]:
+    written = export_kodi_strm(CONFIG.download_dir)
+    return {"ok": True, "count": len(written), "files": written[:20]}
+
+
+@app.post("/api/integrations/plex-hint")
+async def integrations_plex_hint() -> dict[str, Any]:
+    path = write_plex_hint(
+        CONFIG.download_dir,
+        f"Trigger Plex library scan for podcast path: {CONFIG.download_dir}",
+    )
+    return {"ok": True, "path": str(path)}
 
 
 @app.get("/media/{filename}")

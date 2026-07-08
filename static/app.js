@@ -567,6 +567,17 @@ async function loadInsights() {
     $("insightsSync").textContent = data.sync_ok
       ? `Last sync: up to date (GRC #${data.latest_remote})`
       : `Last sync: GRC #${data.latest_remote} · local next #${data.local_next ?? "?"}`;
+    const w = data.watcher || {};
+    const wl = $("watcherLine");
+    if (wl) {
+      if (!w.enabled) {
+        wl.textContent = "Watcher: disabled (set SN_WATCHER_ENABLED=1)";
+      } else {
+        const seen = w.last_seen ? `#${w.last_seen}` : "—";
+        const chk = w.last_check ? new Date(w.last_check * 1000).toLocaleString() : "never";
+        wl.textContent = `Watcher: every ${w.interval_hours ?? "?"}h · last seen ${seen} · checked ${chk}`;
+      }
+    }
     const tl = $("batchTimeline");
     const batches = data.timeline || [];
     tl.innerHTML = batches.length

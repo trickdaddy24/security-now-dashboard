@@ -5,7 +5,11 @@ from typing import Iterable
 
 import httpx
 
+from .circuit import CircuitBreaker
+from .http_retry import get_with_retry
 from .models import EpisodeInfo, MediaType
+
+GRC_CIRCUIT = CircuitBreaker()
 
 GRC_ARCHIVE_URL = "https://www.grc.com/securitynow.htm"
 USER_AGENT = "SecurityNowDashboard/1.0 (+fork of GRC-Downloader concept)"
@@ -44,10 +48,15 @@ async def fetch_catalog(
             verify=verify_ssl,
             headers={"User-Agent": USER_AGENT},
         )
+    if GRC_CIRCUIT.is_open():
+        raise RuntimeError("GRC catalog circuit breaker is open — try again later")
     try:
-        resp = await client.get(GRC_ARCHIVE_URL)
-        resp.raise_for_status()
+        resp = await get_with_retry(client, GRC_ARCHIVE_URL)
+        GRC_CIRCUIT.record_success()
         return _parse_catalog_html(resp.text)
+    except Exception:
+        GRC_CIRCUIT.record_failure()
+        raise
     finally:
         if owns:
             await client.aclose()

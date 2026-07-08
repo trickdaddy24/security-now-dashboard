@@ -1,0 +1,48 @@
+{
+  "title": "Security Now Dashboard",
+  "uid": "sn-dashboard",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active jobs",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sn_jobs_active", "legendFormat": "active" }]
+    },
+    {
+      "type": "stat",
+      "title": "Batch running",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "sn_batch_running", "legendFormat": "running" }]
+    },
+    {
+      "type": "stat",
+      "title": "Latest GRC episode",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "sn_last_episode_number", "legendFormat": "episode" }]
+    },
+    {
+      "type": "stat",
+      "title": "Session errors",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "sn_errors_total", "legendFormat": "errors" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Bytes completed (batch snapshot)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{ "expr": "sn_bytes_total", "legendFormat": "bytes" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed / completed jobs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "expr": "sn_jobs_failed", "legendFormat": "failed" },
+        { "expr": "sn_jobs_completed", "legendFormat": "completed" }
+      ]
+    }
+  ]
+}
