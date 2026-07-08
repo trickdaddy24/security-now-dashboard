@@ -123,7 +123,7 @@ def _load_sidecars(download_dir: Path) -> dict[int, dict[str, Any]]:
     return out
 
 
-def scan_library(download_dir: Path) -> list[EpisodeEntry]:
+def scan_library(download_dir: Path, *, verify_checksums: bool = False) -> list[EpisodeEntry]:
     download_dir = Path(download_dir)
     sidecars = _load_sidecars(download_dir)
     episodes: dict[int, EpisodeEntry] = {}
@@ -151,7 +151,7 @@ def scan_library(download_dir: Path) -> list[EpisodeEntry]:
         sidecar_file = (sidecars.get(ep_num, {}).get("files") or {}).get(media, {})
         expected_hash = sidecar_file.get("sha256")
         checksum_ok: bool | None = None
-        if expected_hash:
+        if expected_hash and verify_checksums:
             try:
                 checksum_ok = file_sha256(path) == expected_hash
             except OSError:
@@ -208,8 +208,10 @@ def library_summary(
     latest_remote: int,
     expected_formats: list[str] | None = None,
     disk_free_bytes: int | None = None,
+    *,
+    verify_checksums: bool = False,
 ) -> dict[str, Any]:
-    entries = scan_library(download_dir)
+    entries = scan_library(download_dir, verify_checksums=verify_checksums)
     numbers = [e.number for e in entries]
     gaps = missing_episodes(numbers, latest_remote) if latest_remote else []
 

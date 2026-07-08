@@ -325,7 +325,10 @@ document.querySelectorAll(".tab").forEach((btn) => {
     });
     if (tab === "library") loadLibrary();
     if (tab === "search") loadSearchStatus();
-    if (tab === "insights") loadInsights();
+    if (tab === "insights") {
+      loadInsights();
+      loadIntegrations();
+    }
   });
 });
 
@@ -470,12 +473,71 @@ function renderLibrary(data) {
   renderLibraryTable();
 }
 
+let _libLoadTimer = null;
+let _libLoadPct = 0;
+
+const LIB_LOAD_STEPS = [
+  { at: 12, label: "Contacting GRC catalog…", hint: "Checking latest episode number." },
+  { at: 35, label: "Scanning download folder…", hint: "Walking episode folders on disk." },
+  { at: 62, label: "Indexing media files…", hint: "Matching audio, video, and transcripts." },
+  { at: 82, label: "Building library view…", hint: "Almost ready." },
+];
+
+function showLibraryLoading(active) {
+  const box = $("libLoading");
+  const table = $("libTable");
+  if (!box) return;
+  if (active) {
+    box.classList.remove("hidden");
+    if (table) table.classList.add("hidden");
+    _libLoadPct = 0;
+    setLibraryProgress(4, LIB_LOAD_STEPS[0].label, LIB_LOAD_STEPS[0].hint);
+    if (_libLoadTimer) clearInterval(_libLoadTimer);
+    let step = 0;
+    _libLoadTimer = setInterval(() => {
+      if (_libLoadPct >= 88) return;
+      _libLoadPct = Math.min(88, _libLoadPct + 2 + Math.random() * 4);
+      while (step < LIB_LOAD_STEPS.length - 1 && _libLoadPct >= LIB_LOAD_STEPS[step + 1].at) step += 1;
+      const s = LIB_LOAD_STEPS[step];
+      setLibraryProgress(_libLoadPct, s.label, s.hint);
+    }, 280);
+    $("libSummary").innerHTML = '<p class="muted">Scanning archive…</p>';
+    $("storageBreakdown").innerHTML = "";
+  } else {
+    if (_libLoadTimer) {
+      clearInterval(_libLoadTimer);
+      _libLoadTimer = null;
+    }
+    setLibraryProgress(100, "Done", "");
+    setTimeout(() => {
+      box.classList.add("hidden");
+      if (table) table.classList.remove("hidden");
+    }, 220);
+  }
+}
+
+function setLibraryProgress(pct, label, hint) {
+  const bar = $("libProgressBar");
+  const prog = $("libProgress");
+  const lbl = $("libLoadingLabel");
+  const h = $("libLoadingHint");
+  const n = Math.round(pct);
+  if (bar) bar.style.width = `${n}%`;
+  if (prog) prog.setAttribute("aria-valuenow", String(n));
+  if (lbl && label) lbl.textContent = label;
+  if (h) h.textContent = hint || "";
+}
+
 async function loadLibrary() {
+  showLibraryLoading(true);
   try {
     renderLibrary(await (await fetch("/api/library")).json());
     loadRssStatus();
   } catch {
     $("libSummary").innerHTML = "<p class='muted'>Library scan failed.</p>";
+    $("libTable").innerHTML = "<p class='empty'>Could not scan library.</p>";
+  } finally {
+    showLibraryLoading(false);
   }
 }
 
@@ -582,6 +644,53 @@ function drawWeeklyChart(weekly) {
     ctx.fillText(String(row.completed), x, y - 4);
   });
 }
+
+async function loadIntegrations() {
+  const status = $("telegramStatus");
+  const meta = $("telegramMeta");
+  const btn = $("testTelegramBtn");
+  try {
+    const data = await (await fetch("/api/integrations/status")).json();
+    const tg = data.telegram || {};
+    if (status) {
+      status.textContent = tg.enabled
+        ? `Connected · chat ${tg.chat_id_masked || "—"}`
+        : "Not configured — set SN_TELEGRAM_BOT_TOKEN and SN_TELEGRAM_CHAT_ID";
+    }
+    if (meta) {
+      meta.innerHTML = tg.enabled
+        ? [
+            `<li>Per-download alerts: <strong>${tg.on_job_complete ? "on" : "off"}</strong></li>`,
+            `<li>Heartbeat: <strong>every ${tg.heartbeat_interval_hours ?? 6}h</strong></li>`,
+          ].join("")
+        : "";
+    }
+    if (btn) btn.disabled = !tg.enabled;
+  } catch {
+    if (status) status.textContent = "Could not load integration status.";
+    if (btn) btn.disabled = true;
+  }
+}
+
+$("testTelegramBtn")?.addEventListener("click", async () => {
+  const btn = $("testTelegramBtn");
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const data = await (await fetch("/api/integrations/telegram/test", { method: "POST" })).json();
+    if (data.ok) {
+      $("telegramStatus").textContent = "Test sent — check your Telegram.";
+    } else {
+      alert(data.error || "Telegram test failed");
+    }
+  } catch {
+    alert("Telegram test failed");
+  } finally {
+    btn.textContent = "Send test";
+    loadIntegrations();
+  }
+});
 
 async function loadInsights() {
   try {

@@ -23,7 +23,7 @@ from grc_downloader.disk import check_disk_space, free_bytes
 from grc_downloader.downloader import DownloadManager
 from grc_downloader.client_tokens import claim_token, lookup_token
 from grc_downloader.history import read_batches, read_recent
-from grc_downloader.integrations import export_kodi_strm, export_opml, write_plex_hint
+from grc_downloader.integrations import export_kodi_strm, export_opml, notify_telegram, write_plex_hint
 from grc_downloader.logging_config import setup_json_logging
 from grc_downloader.metrics import render_prometheus
 from grc_downloader.models import MediaType
@@ -454,12 +454,14 @@ async def reorder_jobs(req: ReorderRequest) -> dict[str, Any]:
 
 
 @app.get("/api/library")
-async def library() -> dict[str, Any]:
+async def library(verify_checksums: bool = False) -> dict[str, Any]:
     _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
-    return library_summary(
+    return await asyncio.to_thread(
+        library_summary,
         CONFIG.download_dir,
         latest,
         disk_free_bytes=free_bytes(CONFIG.download_dir),
+        verify_checksums=verify_checksums,
     )
 
 
@@ -596,6 +598,36 @@ def request_base_url() -> str:
 async def integrations_kodi() -> dict[str, Any]:
     written = export_kodi_strm(CONFIG.download_dir)
     return {"ok": True, "count": len(written), "files": written[:20]}
+
+
+@app.get("/api/integrations/status")
+async def integrations_status() -> dict[str, Any]:
+    chat = CONFIG.telegram_chat_id or ""
+    masked_chat = f"…{chat[-4:]}" if len(chat) > 4 else ("—" if not chat else "••••")
+    return {
+        "telegram": {
+            "enabled": bool(CONFIG.telegram_bot_token and CONFIG.telegram_chat_id),
+            "chat_id_masked": masked_chat,
+            "on_job_complete": CONFIG.telegram_on_job_complete,
+            "heartbeat_interval_hours": CONFIG.heartbeat_interval_hours,
+        },
+        "discord": {"enabled": bool(CONFIG.discord_webhook_url)},
+        "notifier": {"enabled": bool(CONFIG.notifier_webhook_url)},
+    }
+
+
+@app.post("/api/integrations/telegram/test")
+async def integrations_telegram_test() -> dict[str, Any]:
+    if not CONFIG.telegram_bot_token or not CONFIG.telegram_chat_id:
+        return {"ok": False, "error": "Telegram not configured (SN_TELEGRAM_BOT_TOKEN / SN_TELEGRAM_CHAT_ID)"}
+    msg = f"✅ Security Now — Telegram test OK (v{APP_VERSION})"
+    ok = await notify_telegram(
+        CONFIG.telegram_bot_token,
+        CONFIG.telegram_chat_id,
+        msg,
+        verify_ssl=CONFIG.verify_ssl,
+    )
+    return {"ok": ok, "error": None if ok else "Telegram API rejected the message"}
 
 
 @app.post("/api/integrations/plex-hint")

@@ -190,7 +190,14 @@
 
       <section class="panel dashboard">
         <h2>Episodes on disk</h2>
-        <div class="lib-table-wrap" id="libTable"><p class="empty">No episodes found.</p></div>
+        <div class="lib-loading hidden" id="libLoading" aria-busy="true" aria-live="polite">
+          <p class="lib-loading-label" id="libLoadingLabel">Scanning library…</p>
+          <div class="lib-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="libProgress">
+            <span class="lib-progress-bar" id="libProgressBar"></span>
+          </div>
+          <p class="muted lib-loading-hint" id="libLoadingHint">Reading episode folders on disk…</p>
+        </div>
+        <div class="lib-table-wrap" id="libTable"><p class="empty">Open this tab to scan your archive.</p></div>
       </section>
     </div>
 
@@ -220,6 +227,15 @@
         <h2>History</h2>
         <p class="muted" id="insightsSync">Last sync: —</p>
         <p class="muted" id="watcherLine">Watcher: —</p>
+        <div class="integrations-panel" id="integrationsPanel">
+          <h3>Telegram</h3>
+          <p class="muted" id="telegramStatus">Checking…</p>
+          <ul class="integration-meta" id="telegramMeta"></ul>
+          <div class="actions">
+            <button type="button" class="btn primary" id="testTelegramBtn" disabled>Send test</button>
+          </div>
+          <p class="muted integration-note">Credentials sync from <code>~/notifier/.env</code> on the server. Per-download alerts fire when jobs complete.</p>
+        </div>
         <div class="timeline" id="batchTimeline"><p class="muted">Loading…</p></div>
       </section>
       <section class="panel dashboard">

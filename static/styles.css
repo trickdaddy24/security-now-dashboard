@@ -980,6 +980,85 @@ select {
   white-space: pre-wrap;
 }
 
+.lib-loading {
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+}
+
+.lib-loading.hidden { display: none; }
+
+.lib-loading-label {
+  margin: 0 0 0.65rem;
+  font-family: var(--display);
+  font-size: 0.92rem;
+}
+
+.lib-progress {
+  height: 8px;
+  background: var(--surface-deep);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.lib-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--btn-primary-from), var(--green));
+  border-radius: 999px;
+  transition: width 0.35s ease;
+  animation: libPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes libPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+
+.lib-loading-hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.75rem;
+}
+
+.lib-table-wrap.hidden { display: none; }
+
+.integrations-panel {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+}
+
+.integrations-panel h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--display);
+  font-size: 0.95rem;
+}
+
+.integration-meta {
+  margin: 0.35rem 0 0.65rem;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.integration-meta li { margin: 0.2rem 0; }
+
+.integration-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.integration-note code {
+  font-size: 0.7rem;
+  color: var(--cyan);
+}
+
 .job {
   background: var(--surface);
   border: 1px solid var(--panel-edge);
