@@ -1,0 +1,43 @@
+# Production overlay for Saltbox server (138.201.28.235)
+# Usage on server: docker compose -f docker-compose.yml -f deploy/saltbox/docker-compose.production.yml up -d --build
+
+services:
+  security-now-dashboard:
+    container_name: security-now-dashboard
+    ports: []
+    env_file:
+      - .env.production
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    volumes:
+      - ./data/downloads:/data/downloads
+    networks:
+      - saltbox
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "saltbox"
+      traefik.http.routers.sn-http.entrypoints: "web"
+      traefik.http.routers.sn-http.rule: "Host(`sn.e4z.xyz`)"
+      traefik.http.routers.sn-http.middlewares: "globalHeaders@file,redirect-to-https@docker,robotHeaders@file,authelia@docker"
+      traefik.http.routers.sn-http.priority: "20"
+      traefik.http.routers.sn-http.service: "sn-http"
+      traefik.http.services.sn-http.loadbalancer.server.port: "8787"
+      traefik.http.routers.sn.entrypoints: "websecure"
+      traefik.http.routers.sn.rule: "Host(`sn.e4z.xyz`)"
+      traefik.http.routers.sn.middlewares: "globalHeaders@file,secureHeaders@file,robotHeaders@file,authelia@docker"
+      traefik.http.routers.sn.priority: "20"
+      traefik.http.routers.sn.tls.certresolver: "cfdns"
+      traefik.http.routers.sn.tls.domains[0].main: "e4z.xyz"
+      traefik.http.routers.sn.tls.domains[0].sans: "*.e4z.xyz"
+      traefik.http.routers.sn.tls.options: "securetls@file"
+      traefik.http.services.sn.loadbalancer.server.port: "8787"
+
+networks:
+  saltbox:
+    external: true
