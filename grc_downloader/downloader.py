@@ -448,7 +448,7 @@ class DownloadManager:
             episode=job.episode,
             media=job.media.value,
             url=job.url,
-            filename=job.filename,
+            job_filename=job.filename,
         )
         await self._emit("job_updated", {"job": job.to_dict()})
 
@@ -489,7 +489,7 @@ class DownloadManager:
                 media=job.media.value,
                 url=job.url,
                 status_code=status_code,
-                filename=job.filename,
+                job_filename=job.filename,
             )
             log.error("Job failed ep %s %s: %s", job.episode, job.media.value, job.error)
             await self._emit("job_updated", {"job": job.to_dict()})

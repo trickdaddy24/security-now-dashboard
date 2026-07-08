@@ -16,9 +16,9 @@ class JsonLogFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        for key in ("episode", "media", "url", "status_code", "batch_id", "job_id", "filename"):
-            if hasattr(record, key):
-                payload[key] = getattr(record, key)
+        for key in ("episode", "media", "url", "status_code", "batch_id", "job_id", "job_filename"):
+            if key in record.__dict__:
+                payload[key] = record.__dict__[key]
         if record.exc_info and record.exc_info[1]:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
@@ -35,7 +35,7 @@ def log_download_event(
     status_code: int | None = None,
     batch_id: str | None = None,
     job_id: str | None = None,
-    filename: str | None = None,
+    job_filename: str | None = None,
 ) -> None:
     extra = {
         k: v
@@ -46,7 +46,7 @@ def log_download_event(
             "status_code": status_code,
             "batch_id": batch_id,
             "job_id": job_id,
-            "filename": filename,
+            "job_filename": job_filename,
         }.items()
         if v is not None
     }
