@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from grc_downloader.auth import SecurityMiddleware
 from grc_downloader.cleanup import cleanup_stale_parts
 from grc_downloader.config import AppConfig, load_config
-from grc_downloader.disk import check_disk_space, free_bytes
+from grc_downloader.disk import check_disk_space, estimate_batch_bytes, free_bytes
 from grc_downloader.downloader import DownloadManager
 from grc_downloader.client_tokens import claim_token, lookup_token
 from grc_downloader.history import read_batches, read_recent
@@ -29,6 +29,7 @@ from grc_downloader.metrics import render_prometheus
 from grc_downloader.models import MediaType
 from grc_downloader.library import library_summary, scan_library
 from grc_downloader.parser import GRC_CIRCUIT, fetch_catalog, parse_episode_range
+from grc_downloader.period import episodes_in_period
 from grc_downloader.ratelimit import RateLimiter
 from grc_downloader.rss import FEED_NAMES, build_feeds, rss_status
 from grc_downloader.search import index_transcripts, search_index_status, search_transcripts
@@ -204,12 +205,27 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 class StartRequest(BaseModel):
     episodes: str = Field(default="latest", description="e.g. latest, 1086, 1080:1086, all, next")
     media: list[str] | None = None
+    period: str | None = Field(default=None, description="day, week, or month — use with period_count")
+    period_count: int | None = Field(default=None, ge=1, le=365)
     parallel: int | None = Field(default=None, ge=1, le=8)
     skip_existing: bool | None = None
     filename_format: str | None = None
     retry_failed: bool = False
     client_token: str | None = None
     callback_url: str | None = None
+
+
+async def _resolve_episode_list(
+    req: StartRequest,
+    mgr: DownloadManager,
+) -> tuple[list[int], int, list]:
+    episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    if req.period and req.period_count:
+        ep_list = episodes_in_period(episodes_meta, req.period, req.period_count)
+        return ep_list, latest, episodes_meta
+    local_next = mgr._local_next_episode()  # noqa: SLF001
+    ep_list = parse_episode_range(req.episodes, latest, local_next)
+    return ep_list, latest, episodes_meta
 
 
 @app.get("/")
@@ -332,19 +348,29 @@ async def watcher_status() -> dict[str, Any]:
 @app.post("/api/download/estimate")
 async def estimate_download(req: StartRequest) -> dict[str, Any]:
     mgr = get_manager()
-    episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
-    local_next = mgr._local_next_episode()
-    ep_list = parse_episode_range(req.episodes, latest, local_next)
-    media_types = _parse_media(req.media)
+    try:
+        media_types = _parse_media(req.media)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    ep_list, latest, _ = await _resolve_episode_list(req, mgr)
     if not ep_list:
-        return {"ok": False, "error": "No episodes matched"}
+        label = f"last {req.period_count} {req.period}(s)" if req.period else req.episodes
+        return {"ok": False, "error": f"No episodes matched ({label})"}
+    estimated_bytes = estimate_batch_bytes(ep_list, media_types)
     ok, msg = check_disk_space(CONFIG.download_dir, ep_list, media_types, CONFIG.min_free_mb)
+    ep_min, ep_max = min(ep_list), max(ep_list)
     return {
         "ok": ok,
         "message": msg,
         "episodes": ep_list,
+        "episode_count": len(ep_list),
+        "episode_range": f"{ep_min}:{ep_max}" if len(ep_list) > 1 else str(ep_min),
         "job_count": len(ep_list) * len(media_types),
+        "estimated_bytes": estimated_bytes,
         "disk_free_bytes": free_bytes(CONFIG.download_dir),
+        "period": req.period,
+        "period_count": req.period_count,
+        "latest_remote": latest,
     }
 
 
@@ -393,16 +419,14 @@ async def start_download(req: StartRequest, request: Request) -> dict[str, Any]:
         if existing:
             return {"ok": True, "duplicate": True, "batch_id": existing}
 
-    episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    ep_list, latest, episodes_meta = await _resolve_episode_list(req, mgr)
     global _latest_episode
     _latest_episode = latest
     titles = {e.number: e.title for e in episodes_meta}
     dates = {e.number: e.date_label for e in episodes_meta}
-    local_next = mgr._local_next_episode()
-
-    ep_list = parse_episode_range(req.episodes, latest, local_next)
     if not ep_list:
-        return {"ok": False, "error": "No episodes matched that spec"}
+        label = f"last {req.period_count} {req.period}(s)" if req.period else req.episodes
+        return {"ok": False, "error": f"No episodes matched ({label})"}
 
     try:
         media_types = _parse_media(req.media)

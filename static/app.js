@@ -5,6 +5,8 @@ const state = {
   speedHistory: {},
   dragJobId: null,
   batchWasRunning: false,
+  selectedEpisodes: new Set(),
+  periodBatch: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -97,6 +99,23 @@ async function loadConfig() {
   } catch { /* ignore */ }
 }
 
+function updateEpisodeSelectionUi() {
+  const sel = $("catalogSelection");
+  const n = state.selectedEpisodes.size;
+  if (sel) sel.textContent = n ? `${n} episode${n === 1 ? "" : "s"} selected` : "0 episodes selected — click to toggle";
+  if (n && !state.periodBatch) {
+    const nums = [...state.selectedEpisodes].map(Number).sort((a, b) => a - b);
+    const input = $("episodesInput");
+    if (input) {
+      input.value = nums.length === 1 ? String(nums[0]) : `${nums[0]}:${nums[nums.length - 1]}`;
+    }
+  }
+  document.querySelectorAll(".ep-card").forEach((btn) => {
+    btn.classList.toggle("selected", state.selectedEpisodes.has(Number(btn.dataset.ep)));
+    btn.setAttribute("aria-pressed", state.selectedEpisodes.has(Number(btn.dataset.ep)) ? "true" : "false");
+  });
+}
+
 function renderEpisodeGrid(data) {
   state.catalog = data;
   const meta = $("catalogMeta");
@@ -107,28 +126,114 @@ function renderEpisodeGrid(data) {
     grid.innerHTML = "";
     return;
   }
-  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · local next #${data.local_next}` : ""} — click to queue`;
+  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · local next #${data.local_next}` : ""} — click to select`;
   if (sync) {
     const ok = data.local_next && data.latest && data.local_next > data.latest;
     sync.textContent = ok
       ? `GRC sync: up to date (#${data.latest})`
       : `GRC sync: remote #${data.latest}${data.local_next ? ` · you have through #${data.local_next - 1}` : ""}`;
   }
-  grid.innerHTML = data.episodes.slice(0, 30).map((e) => `
-    <button type="button" class="ep-card" data-ep="${e.number}" role="listitem" title="${esc(e.title)}">
+  grid.innerHTML = data.episodes.slice(0, 30).map((e) => {
+    const on = state.selectedEpisodes.has(e.number);
+    return `
+    <button type="button" class="ep-card${on ? " selected" : ""}" data-ep="${e.number}" role="listitem"
+      aria-pressed="${on ? "true" : "false"}" title="${esc(e.title)}">
+      <span class="ep-check" aria-hidden="true">${on ? "✓" : ""}</span>
       <span class="ep-num">#${e.number}</span>
       <span class="ep-title">${esc(e.title || "Untitled")}</span>
       <span class="ep-date muted">${esc(e.date || "")}</span>
-    </button>
-  `).join("");
+    </button>`;
+  }).join("");
   grid.querySelectorAll(".ep-card").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const ep = btn.dataset.ep;
-      const input = $("episodesInput");
-      if (input) input.value = ep;
-      input?.focus();
+      state.periodBatch = null;
+      const ep = Number(btn.dataset.ep);
+      if (state.selectedEpisodes.has(ep)) state.selectedEpisodes.delete(ep);
+      else state.selectedEpisodes.add(ep);
+      updateEpisodeSelectionUi();
     });
   });
+  updateEpisodeSelectionUi();
+}
+
+function getSelectedMedia() {
+  return [...document.querySelectorAll('#downloadForm input[name="media"]:checked')].map((el) => el.value);
+}
+
+function setAllMedia(checked) {
+  document.querySelectorAll('#downloadForm input[name="media"]').forEach((el) => {
+    el.checked = checked;
+  });
+  syncMediaChips();
+}
+
+function syncMediaChips() {
+  document.querySelectorAll(".chip-btn[data-media]").forEach((btn) => {
+    const input = document.querySelector(`#downloadForm input[name="media"][value="${btn.dataset.media}"]`);
+    btn.classList.toggle("active", !!(input && input.checked));
+  });
+}
+
+function buildDownloadPayload(extra = {}) {
+  const form = $("downloadForm");
+  const fd = new FormData(form);
+  const media = getSelectedMedia();
+  const payload = {
+    media,
+    parallel: Number(fd.get("parallel") || 2),
+    skip_existing: fd.get("skip_existing") === "on",
+    filename_format: fd.get("filename_format") || "raw",
+    ...extra,
+  };
+  if (state.periodBatch) {
+    payload.period = state.periodBatch.period;
+    payload.period_count = state.periodBatch.count;
+    payload.episodes = "latest";
+  } else {
+    payload.episodes = fd.get("episodes") || "latest";
+  }
+  return payload;
+}
+
+function renderEstimate(data) {
+  const line = $("estimateLine");
+  if (!line) return;
+  if (!data.ok) {
+    line.textContent = data.error || "Estimate failed";
+    line.classList.add("warn");
+    return;
+  }
+  line.classList.remove("warn");
+  const jobs = data.job_count ?? 0;
+  const eps = data.episode_count ?? data.episodes?.length ?? 0;
+  const range = data.episode_range || "—";
+  const size = fmtBytes(data.estimated_bytes);
+  const disk = data.disk_free_bytes != null ? fmtBytes(data.disk_free_bytes) : "—";
+  const space = data.message ? ` · ${data.message}` : data.ok ? " · disk OK" : "";
+  const period = data.period && data.period_count
+    ? `last ${data.period_count} ${data.period}(s) · `
+    : "";
+  line.textContent = `${period}${eps} episode(s) (${range}) · ${jobs} jobs · ~${size} · ${disk} free${space}`;
+}
+
+async function runEstimate() {
+  const media = getSelectedMedia();
+  if (!media.length) {
+    alert("Pick at least one media type.");
+    return;
+  }
+  const line = $("estimateLine");
+  if (line) line.textContent = "Calculating…";
+  const payload = buildDownloadPayload();
+  try {
+    renderEstimate(await (await fetch("/api/download/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })).json());
+  } catch {
+    if (line) line.textContent = "Estimate failed";
+  }
 }
 
 async function loadCatalog() {
@@ -334,23 +439,66 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
 $("downloadForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const fd = new FormData(e.target);
-  const media = [...e.target.querySelectorAll('input[name="media"]:checked')].map((el) => el.value);
-  if (!media.length) { alert("Pick at least one media type."); return; }
+  if (!getSelectedMedia().length) { alert("Pick at least one media type."); return; }
   $("startBtn").disabled = true;
   const res = await fetch("/api/download", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      episodes: fd.get("episodes"),
-      media,
-      parallel: Number(fd.get("parallel") || 2),
-      skip_existing: fd.get("skip_existing") === "on",
-      filename_format: fd.get("filename_format") || "raw",
-    }),
+    body: JSON.stringify(buildDownloadPayload()),
   });
   const data = await res.json();
   if (!data.ok) alert(data.error || "Failed to start");
+});
+
+document.querySelectorAll(".chip-btn[data-media]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.querySelector(`#downloadForm input[name="media"][value="${btn.dataset.media}"]`);
+    if (!input) return;
+    input.checked = !input.checked;
+    syncMediaChips();
+    if (state.periodBatch || $("estimateLine")?.textContent !== "Estimated download: —") runEstimate();
+  });
+});
+
+$("selectAllMediaBtn")?.addEventListener("click", () => setAllMedia(true));
+$("clearMediaBtn")?.addEventListener("click", () => setAllMedia(false));
+
+document.querySelectorAll('#downloadForm input[name="media"]').forEach((el) => {
+  el.addEventListener("change", syncMediaChips);
+});
+syncMediaChips();
+
+$("applyPeriodBtn")?.addEventListener("click", async () => {
+  const count = Number($("periodCount")?.value || 1);
+  const period = $("periodUnit")?.value || "day";
+  state.periodBatch = { period, count };
+  state.selectedEpisodes.clear();
+  updateEpisodeSelectionUi();
+  const input = $("episodesInput");
+  if (input) input.value = `last ${count} ${period}${count === 1 ? "" : "s"}`;
+  await runEstimate();
+});
+
+$("estimateBtn")?.addEventListener("click", runEstimate);
+
+$("selectAllEpsBtn")?.addEventListener("click", () => {
+  state.periodBatch = null;
+  (state.catalog?.episodes || []).slice(0, 30).forEach((e) => state.selectedEpisodes.add(e.number));
+  updateEpisodeSelectionUi();
+});
+
+$("clearEpsBtn")?.addEventListener("click", () => {
+  state.selectedEpisodes.clear();
+  state.periodBatch = null;
+  const input = $("episodesInput");
+  if (input) input.value = "latest";
+  updateEpisodeSelectionUi();
+  const line = $("estimateLine");
+  if (line) line.textContent = "Estimated download: —";
+});
+
+$("episodesInput")?.addEventListener("input", () => {
+  state.periodBatch = null;
 });
 
 $("cancelBtn")?.addEventListener("click", () => fetch("/api/cancel", { method: "POST" }));
