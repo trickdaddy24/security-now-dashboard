@@ -785,16 +785,28 @@ fieldset.media-grid legend {
   font-weight: 600;
 }
 
-.media-checkboxes {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.2rem 0.5rem;
+.media-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
+.chip-btn::after {
+  content: " " attr(data-size);
+  font-size: 0.62rem;
+  opacity: 0.72;
+  font-weight: 400;
+}
+
+.episode-batch,
 .period-batch {
   margin-bottom: 1rem;
 }
 
+.episode-batch .field-label,
 .period-batch .field-label {
   display: block;
   font-size: 0.7rem;
@@ -823,6 +835,24 @@ fieldset.media-grid legend {
 
 #periodUnit {
   min-width: 6rem;
+}
+
+.period-or {
+  font-size: 0.75rem;
+  align-self: center;
+}
+
+.episodes-inline {
+  flex: 1;
+  min-width: 8rem;
+  max-width: 14rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--panel-edge);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
 }
 
 #estimateLine.warn { color: var(--red); }

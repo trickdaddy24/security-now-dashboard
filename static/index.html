@@ -63,13 +63,8 @@
       <section class="panel controls">
         <h2>Launch batch</h2>
         <form id="downloadForm">
-          <label>
-            Episodes
-            <input type="text" name="episodes" id="episodesInput" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
-          </label>
-
-          <div class="period-batch">
-            <span class="field-label">Batch by time</span>
+          <div class="episode-batch">
+            <span class="field-label">Episodes</span>
             <div class="row period-row">
               <label class="period-count-label">
                 Last
@@ -80,36 +75,35 @@
                 <option value="week">weeks</option>
                 <option value="month">months</option>
               </select>
-              <button type="button" class="btn" id="applyPeriodBtn">Apply range</button>
-              <button type="button" class="btn" id="estimateBtn">Estimate size</button>
+              <button type="button" class="btn" id="applyPeriodBtn">Apply</button>
+              <span class="period-or muted">or</span>
+              <input type="text" name="episodes" id="episodesInput" value="latest"
+                placeholder="latest · 1086 · 1080:1086" class="episodes-inline" aria-label="Episode spec" />
+              <button type="button" class="btn" id="estimateBtn">Estimate</button>
             </div>
-            <p class="muted" id="estimateLine">Estimated download: —</p>
+            <p class="muted" id="estimateLine">Pick media and episodes, then Estimate.</p>
           </div>
 
           <fieldset class="media-grid">
-            <legend>Media types</legend>
+            <legend>Media</legend>
             <div class="media-toolbar">
-              <button type="button" class="chip-btn" data-media="audio_hq">Audio HQ</button>
-              <button type="button" class="chip-btn" data-media="audio_twit">TWiT audio</button>
-              <button type="button" class="chip-btn" data-media="video_hd">Video HD</button>
-              <button type="button" class="chip-btn" data-media="transcript_txt">Transcript .txt</button>
-              <button type="button" class="chip-btn" data-media="transcript_pdf">Transcript .pdf</button>
-              <button type="button" class="chip-btn" data-media="show_notes">Show notes</button>
-              <button type="button" class="btn tiny" id="selectAllMediaBtn">Select all</button>
+              <button type="button" class="chip-btn" data-media="audio_hq" data-size="~75 MB">Audio HQ</button>
+              <button type="button" class="chip-btn" data-media="audio_twit" data-size="~75 MB">TWiT audio</button>
+              <button type="button" class="chip-btn" data-media="video_hd" data-size="~2 GB">Video HD</button>
+              <button type="button" class="chip-btn" data-media="transcript_txt" data-size="~200 KB">Transcript .txt</button>
+              <button type="button" class="chip-btn" data-media="transcript_pdf" data-size="~400 KB">Transcript .pdf</button>
+              <button type="button" class="chip-btn" data-media="show_notes" data-size="~600 KB">Show notes</button>
+              <button type="button" class="btn tiny" id="selectAllMediaBtn">All</button>
               <button type="button" class="btn tiny" id="clearMediaBtn">Clear</button>
             </div>
-            <div class="media-checkboxes">
-              <label><input type="checkbox" name="media" value="audio_hq" checked /> Audio HQ</label>
-              <label><input type="checkbox" name="media" value="audio_lq" /> Audio LQ</label>
-              <label><input type="checkbox" name="media" value="audio_twit" /> TWiT audio</label>
-              <label><input type="checkbox" name="media" value="video_hd" /> Video HD</label>
-              <label><input type="checkbox" name="media" value="video_hq" /> Video HQ</label>
-              <label><input type="checkbox" name="media" value="video_lq" /> Video LQ</label>
-              <label><input type="checkbox" name="media" value="transcript_txt" /> Transcript .txt</label>
-              <label><input type="checkbox" name="media" value="transcript_pdf" /> Transcript .pdf</label>
-              <label><input type="checkbox" name="media" value="show_notes" /> Show notes</label>
+            <div class="media-hidden" aria-hidden="true">
+              <input type="checkbox" name="media" value="audio_hq" checked />
+              <input type="checkbox" name="media" value="audio_twit" />
+              <input type="checkbox" name="media" value="video_hd" />
+              <input type="checkbox" name="media" value="transcript_txt" />
+              <input type="checkbox" name="media" value="transcript_pdf" />
+              <input type="checkbox" name="media" value="show_notes" />
             </div>
-            <p class="muted media-hint">Video is TWiT 1080p only (~2–3 GB). HD/HQ/LQ all use the same file. Audio HQ from GRC is fastest for new episodes.</p>
           </fieldset>
 
           <label>
@@ -132,9 +126,6 @@
             </label>
           </div>
 
-          <p class="disk-line muted" id="diskLine">Disk free: —</p>
-          <p class="sync-line muted" id="syncLine">GRC sync: —</p>
-
           <div class="actions">
             <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
             <button type="button" class="btn danger" id="cancelBtn">Cancel batch</button>
@@ -151,7 +142,6 @@
             </div>
           </div>
           <p class="muted" id="catalogMeta">Loading GRC catalog…</p>
-          <p class="muted" id="catalogSelection">0 episodes selected</p>
           <div class="episode-grid" id="episodeGrid" role="list"></div>
         </div>
       </section>

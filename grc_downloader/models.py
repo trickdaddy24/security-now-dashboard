@@ -45,9 +45,10 @@ ESTIMATED_BYTES: dict[MediaType, int] = {
     MediaType.AUDIO_HQ: 75 * 1024 * 1024,
     MediaType.AUDIO_LQ: 20 * 1024 * 1024,
     MediaType.AUDIO_TWIT: 75 * 1024 * 1024,
+    # HD/HQ/LQ all resolve to the same TWiT 1080p file (~2–3 GB)
     MediaType.VIDEO_HD: 2 * 1024 * 1024 * 1024,
-    MediaType.VIDEO_HQ: 650 * 1024 * 1024,
-    MediaType.VIDEO_LQ: 200 * 1024 * 1024,
+    MediaType.VIDEO_HQ: 2 * 1024 * 1024 * 1024,
+    MediaType.VIDEO_LQ: 2 * 1024 * 1024 * 1024,
     MediaType.TRANSCRIPT_TXT: 200 * 1024,
     MediaType.TRANSCRIPT_PDF: 400 * 1024,
     MediaType.TRANSCRIPT_HTML: 250 * 1024,

@@ -94,15 +94,25 @@ async function loadConfig() {
     if (parallel && cfg.parallel) parallel.value = cfg.parallel;
     const fmt = document.querySelector('select[name="filename_format"]');
     if (fmt && cfg.filename_format) fmt.value = cfg.filename_format;
-    const disk = $("diskLine");
-    if (disk) disk.textContent = `Disk free: ${fmtBytes(cfg.disk_free_bytes)}`;
+
   } catch { /* ignore */ }
 }
 
-function updateEpisodeSelectionUi() {
-  const sel = $("catalogSelection");
+function refreshCatalogMeta() {
+  const data = state.catalog;
+  const meta = $("catalogMeta");
+  if (!meta || !data?.episodes?.length) return;
   const n = state.selectedEpisodes.size;
-  if (sel) sel.textContent = n ? `${n} episode${n === 1 ? "" : "s"} selected` : "0 episodes selected — click to toggle";
+  const syncOk = data.local_next && data.latest && data.local_next > data.latest;
+  const syncBit = syncOk
+    ? `up to date through #${data.latest}`
+    : `remote #${data.latest}${data.local_next ? ` · local through #${data.local_next - 1}` : ""}`;
+  const selBit = n ? ` · ${n} selected` : " · click to select";
+  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · next #${data.local_next}` : ""} · ${syncBit}${selBit}`;
+}
+
+function updateEpisodeSelectionUi() {
+  const n = state.selectedEpisodes.size;
   if (n && !state.periodBatch) {
     const nums = [...state.selectedEpisodes].map(Number).sort((a, b) => a - b);
     const input = $("episodesInput");
@@ -114,25 +124,19 @@ function updateEpisodeSelectionUi() {
     btn.classList.toggle("selected", state.selectedEpisodes.has(Number(btn.dataset.ep)));
     btn.setAttribute("aria-pressed", state.selectedEpisodes.has(Number(btn.dataset.ep)) ? "true" : "false");
   });
+  refreshCatalogMeta();
 }
 
 function renderEpisodeGrid(data) {
   state.catalog = data;
   const meta = $("catalogMeta");
   const grid = $("episodeGrid");
-  const sync = $("syncLine");
   if (!data.episodes?.length) {
     meta.textContent = "Could not load catalog.";
     grid.innerHTML = "";
     return;
   }
-  meta.textContent = `Latest #${data.latest}${data.local_next ? ` · local next #${data.local_next}` : ""} — click to select`;
-  if (sync) {
-    const ok = data.local_next && data.latest && data.local_next > data.latest;
-    sync.textContent = ok
-      ? `GRC sync: up to date (#${data.latest})`
-      : `GRC sync: remote #${data.latest}${data.local_next ? ` · you have through #${data.local_next - 1}` : ""}`;
-  }
+  refreshCatalogMeta();
   grid.innerHTML = data.episodes.slice(0, 30).map((e) => {
     const on = state.selectedEpisodes.has(e.number);
     return `
@@ -213,7 +217,7 @@ function renderEstimate(data) {
   const period = data.period && data.period_count
     ? `last ${data.period_count} ${data.period}(s) · `
     : "";
-  line.textContent = `${period}${eps} episode(s) (${range}) · ${jobs} jobs · ~${size} · ${disk} free${space}`;
+  line.textContent = `${period}${eps} ep (${range}) · ${jobs} jobs · ~${size} · ${disk} free${space}`;
 }
 
 async function runEstimate() {
@@ -276,10 +280,6 @@ function renderStats(snapshot) {
     node.textContent = c[node.dataset.k] ?? 0;
   });
   $("dlDir").textContent = snapshot.download_dir || "—";
-  const disk = $("diskLine");
-  if (disk && snapshot.disk_free_bytes != null) {
-    disk.textContent = `Disk free: ${fmtBytes(snapshot.disk_free_bytes)}`;
-  }
   const active = (snapshot.jobs || []).filter((j) => j.status === "running");
   const totalSpeed = active.reduce((s, j) => s + (j.speed_bps || 0), 0);
   const tp = $("throughput");
