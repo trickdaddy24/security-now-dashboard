@@ -1,0 +1,15 @@
+# One-shot headless downloads — no dashboard process kept running.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cli.yml run --rm sn-download -latest -ahq -q
+#   docker compose -f docker-compose.yml -f docker-compose.cli.yml run --rm sn-download -ep next -ahq -epnotes -q
+
+services:
+  sn-download:
+    build: .
+    profiles: ["cli"]
+    entrypoint: ["python", "-m", "grc_downloader"]
+    command: ["-latest", "-ahq", "-q"]
+    environment:
+      - SN_DOWNLOAD_DIR=/data/downloads
+    volumes:
+      - ./data/downloads:/data/downloads

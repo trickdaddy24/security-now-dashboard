@@ -15,7 +15,8 @@ from pydantic import BaseModel, Field
 from grc_downloader.config import AppConfig, load_config
 from grc_downloader.disk import check_disk_space, free_bytes
 from grc_downloader.downloader import DownloadManager
-from grc_downloader.history import read_recent
+from grc_downloader.client_tokens import claim_token, lookup_token
+from grc_downloader.history import read_batches, read_recent
 from grc_downloader.models import MediaType
 from grc_downloader.parser import fetch_catalog, parse_episode_range
 
@@ -24,7 +25,7 @@ STATIC_DIR = ROOT / "static"
 
 CONFIG: AppConfig = load_config()
 
-app = FastAPI(title="Security Now Dashboard", version="1.1.0")
+app = FastAPI(title="Security Now Dashboard", version="1.2.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _ws_clients: set[WebSocket] = set()
@@ -57,6 +58,8 @@ class StartRequest(BaseModel):
     skip_existing: bool | None = None
     filename_format: str | None = None
     retry_failed: bool = False
+    client_token: str | None = None
+    callback_url: str | None = None
 
 
 @app.get("/")
@@ -79,7 +82,7 @@ async def get_config() -> dict[str, Any]:
 
 @app.get("/api/catalog")
 async def catalog() -> dict[str, Any]:
-    episodes, latest = await fetch_catalog()
+    episodes, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
     mgr = get_manager()
     local_next = mgr._local_next_episode()  # noqa: SLF001
     return {
@@ -116,10 +119,16 @@ async def history(limit: int = 50) -> dict[str, Any]:
     return {"events": read_recent(mgr.history_path, limit=limit)}
 
 
+@app.get("/api/jobs/history")
+async def jobs_history(limit: int = 20) -> dict[str, Any]:
+    mgr = get_manager()
+    return {"batches": read_batches(mgr.history_path, limit=limit)}
+
+
 @app.post("/api/download/estimate")
 async def estimate_download(req: StartRequest) -> dict[str, Any]:
     mgr = get_manager()
-    episodes_meta, latest = await fetch_catalog()
+    episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
     local_next = mgr._local_next_episode()
     ep_list = parse_episode_range(req.episodes, latest, local_next)
     media_types = _parse_media(req.media)
@@ -155,10 +164,16 @@ async def start_download(req: StartRequest) -> dict[str, Any]:
             media_types=[],
             retry_failed=True,
             parallel=req.parallel,
+            callback_url=req.callback_url,
         )
         return {"ok": ok, "error": err or None, "retry_failed": True}
 
-    episodes_meta, latest = await fetch_catalog()
+    if req.client_token:
+        existing = lookup_token(CONFIG.download_dir, req.client_token)
+        if existing:
+            return {"ok": True, "duplicate": True, "batch_id": existing}
+
+    episodes_meta, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
     titles = {e.number: e.title for e in episodes_meta}
     dates = {e.number: e.date_label for e in episodes_meta}
     local_next = mgr._local_next_episode()
@@ -180,10 +195,18 @@ async def start_download(req: StartRequest) -> dict[str, Any]:
         parallel=req.parallel,
         skip_existing=req.skip_existing,
         filename_format=req.filename_format,
+        callback_url=req.callback_url,
     )
     if not ok:
         return {"ok": False, "error": err}
-    return {"ok": True, "episodes": ep_list, "jobs": len(mgr._order)}
+    if req.client_token and mgr._batch_id:  # noqa: SLF001
+        claim_token(CONFIG.download_dir, req.client_token, mgr._batch_id)
+    return {
+        "ok": True,
+        "episodes": ep_list,
+        "jobs": len(mgr._order),
+        "batch_id": mgr._batch_id,
+    }
 
 
 @app.post("/api/cancel")

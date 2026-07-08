@@ -44,6 +44,7 @@ class DownloadManager:
         self._cancel = False
         self._lock = asyncio.Lock()
         self._batch_id: str | None = None
+        self._callback_url: str | None = None
 
     def snapshot(self) -> dict[str, Any]:
         jobs = [self.jobs[jid].to_dict() for jid in self._order if jid in self.jobs]
@@ -156,6 +157,7 @@ class DownloadManager:
         skip_existing: bool | None = None,
         filename_format: str | None = None,
         retry_failed: bool = False,
+        callback_url: str | None = None,
     ) -> tuple[bool, str]:
         async with self._lock:
             if self._running:
@@ -180,6 +182,7 @@ class DownloadManager:
             self.jobs.clear()
             self._order.clear()
             self._batch_id = new_batch_id()
+            self._callback_url = callback_url
             skip = self.config.skip_existing if skip_existing is None else skip_existing
             par = parallel or self.config.parallel
 
@@ -233,6 +236,7 @@ class DownloadManager:
         self.jobs.clear()
         self._order.clear()
         self._batch_id = new_batch_id()
+        self._callback_url = None
 
         for item in failed:
             job_id = str(uuid.uuid4())
@@ -287,6 +291,17 @@ class DownloadManager:
                     batch_finished_record(self._batch_id, snap["counts"]),
                 )
             await self._emit("batch_finished")
+            if self._callback_url:
+                asyncio.create_task(self._fire_callback(snap))
+
+    async def _fire_callback(self, snap: dict[str, Any]) -> None:
+        if not self._callback_url:
+            return
+        try:
+            async with httpx.AsyncClient(timeout=30.0, verify=self.config.verify_ssl) as client:
+                await client.post(self._callback_url, json=snap)
+        except Exception:
+            pass
 
     async def _download_one(self, job_id: str) -> None:
         job = self.jobs[job_id]

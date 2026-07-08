@@ -70,6 +70,10 @@ def load_config() -> AppConfig:
         cfg.min_free_mb = int(env)
     if env := os.getenv("SN_HISTORY_FILE"):
         cfg.history_file = Path(env)
+    if env := os.getenv("SN_SKIP_EXISTING"):
+        cfg.skip_existing = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_MEDIA"):
+        cfg.default_media = [m.strip() for m in env.split(",") if m.strip()]
 
     cfg.download_dir.mkdir(parents=True, exist_ok=True)
     return cfg

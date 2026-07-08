@@ -6,10 +6,24 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Planned
-- Headless CLI matching original `GRC-Downloader.sh` flags
 - RSS feed generation (`-create-rss-audio` parity)
 - Transcript full-text search
 - Optional dashboard authentication for public deploys
+
+## [1.2.0] - 2026-07-08
+
+### Added
+- Headless CLI: `python -m grc_downloader` and `sn-download` launcher
+- GRC-Downloader.sh flag parity: `-ep`, `-latest`, `-all`, `-ahq`/`-alq`/`-vhd`/`-vhq`/`-vlq`, `-eptxt`/`-eppdf`/`-ephtml`/`-epnotes`, `-d`, `-pd`, `-p`, `-q`, `-ff`, `-skip-digital-cert-check`, `-u`, `--json`, `--retry-failed`
+- Exit codes: 0 success, 1 partial failure, 2 usage, 3 disk space
+- CLI progress on stderr; `--json` machine output for scripting
+- `SN_EPISODES`, `SN_MEDIA`, `SN_QUIET`, `SN_JSON`, `SN_PRETEND`, `SN_SKIP_EXISTING` env vars
+- `GET /api/jobs/history` — aggregated batch history from JSONL log
+- Idempotent `POST /api/download` via `client_token` (24h dedupe)
+- Webhook `callback_url` on batch complete
+- Systemd timer example (`deploy/systemd/`)
+- `docker-compose.cli.yml` for one-shot downloads without dashboard
+- `test_cli.py` offline CLI tests
 
 ## [1.1.0] - 2026-07-08
 
@@ -43,6 +57,7 @@ All notable changes to this project are documented here. Format follows
 - Docker image and `docker-compose.yml` with health check
 - Project documentation suite (README, ROADMAP, CONTRIBUTING, LICENSE)
 
-[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.2.0
 [1.1.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.1.0
 [1.0.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.0.0

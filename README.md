@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.1.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -19,6 +19,7 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
 - [Features](#features)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [Headless CLI](#headless-cli)
 - [Configuration](#configuration)
 - [Environment Variables](#environment-variables)
 - [API Reference](#api-reference)
@@ -43,9 +44,10 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
 - **Download history** — JSONL log survives restarts; per-episode `.meta.json` sidecars with SHA-256
 - **Config file** — `config.toml` or `SN_*` env vars for download dir, parallel, media defaults
 - **Live dashboard** — WebSocket progress bars, throughput, disk free, retry failed button
-- **REST API** — start batches, cancel, estimate, history, poll status, fetch catalog
-- **Docker-ready** — single-container deploy with volume-mounted download directory
-- **Upstream parity (planned)** — RSS feeds, transcript search, full CLI flags — see [ROADMAP.md](ROADMAP.md)
+- **Headless CLI** — `sn-download` / `python -m grc_downloader` with GRC-Downloader.sh flag parity
+- **REST API** — start batches, cancel, estimate, history, poll status, fetch catalog, webhooks
+- **Docker-ready** — dashboard container or one-shot CLI via `docker compose run`
+- **Upstream parity (planned)** — RSS feeds, transcript search — see [ROADMAP.md](ROADMAP.md)
 
 ## Architecture
 
@@ -63,7 +65,8 @@ A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/s
                                  ├── filenames.py  raw / ordered / kodi presets
                                  ├── disk.py       space pre-check + estimates
                                  ├── history.py    JSONL batch/job history
-                                 └── metadata.py   per-episode .meta.json sidecars
+                                 ├── metadata.py   per-episode .meta.json sidecars
+                                 └── cli.py        headless sn-download CLI
                                           │
                                           ▼
                                downloads/  (local episode files)
@@ -112,8 +115,64 @@ Dashboard: **http://localhost:8787** · Downloads persist in `./data/downloads/`
 
 ```bash
 python test_smoke.py
+python test_cli.py
 python test_integration.py   # optional network test (show notes download)
 ```
+
+## Headless CLI
+
+No browser required — matches [GRC-Downloader.sh](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) flags for cron and SSH.
+
+```bash
+# Latest HQ audio (quiet, for cron)
+python -m grc_downloader -latest -ahq -q
+
+# Catch up from next local episode
+python -m grc_downloader -ep next -ahq -epnotes -q
+
+# Dry run
+python -m grc_downloader -latest -ahq -p
+
+# Machine-readable output for scripts / Notifier
+python -m grc_downloader -latest -epnotes --json
+
+# Check for newer release
+python -m grc_downloader -u
+```
+
+Or use the launcher: `python sn-download -latest -ahq -q`
+
+| Flag | Meaning |
+|---|---|
+| `-ep N` / `-ep N:M` / `-ep N:latest` | Episode spec |
+| `-latest` / `-all` | Latest episode or full archive |
+| (no episode flags) | Implicit `next` from local files |
+| `-ahq` `-alq` `-vhd` `-vhq` `-vlq` | Media types |
+| `-eptxt` `-eppdf` `-ephtml` `-epnotes` | Transcripts + show notes |
+| `-d PATH` `-pd N` `-ff ordered` | Dir, parallel, filename preset |
+| `-p` | Pretend / dry-run |
+| `-q` | Quiet (no stderr progress) |
+| `--json` | JSON snapshot on stdout |
+| `--retry-failed` | Re-queue failed jobs from last batch |
+| `-skip-digital-cert-check` | Disable TLS verification |
+| `-u` | Check GitHub for newer release |
+
+**Exit codes:** `0` success · `1` partial failure · `2` usage error · `3` disk space
+
+### Cron example
+
+```bash
+# Weekly catch-up — every Sunday 6:30 AM
+30 6 * * 0 cd /opt/security-now-dashboard && .venv/bin/python -m grc_downloader -ep next -ahq -epnotes -q
+```
+
+### Docker one-shot
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cli.yml run --rm sn-download -latest -ahq -q
+```
+
+Systemd unit examples: `deploy/systemd/sn-download-latest.service` + `.timer`
 
 ## Configuration
 
@@ -150,6 +209,12 @@ default = ["audio_hq"]
 | `SN_MIN_FREE_MB` | No | `500` | Minimum free disk MB before starting a batch |
 | `SN_VERIFY_SSL` | No | `true` | Set `false` to skip TLS verification |
 | `SN_HISTORY_FILE` | No | `<download_dir>/.sn-history.jsonl` | JSONL history path |
+| `SN_EPISODES` | No | — | CLI episode spec (`next`, `latest`, `1080:1086`) |
+| `SN_MEDIA` | No | `audio_hq` | Comma-separated default media (CLI + API) |
+| `SN_QUIET` | No | — | CLI: suppress stderr progress |
+| `SN_JSON` | No | — | CLI: JSON output on stdout |
+| `SN_PRETEND` | No | — | CLI: dry-run mode |
+| `SN_SKIP_EXISTING` | No | `true` | Set `false` to re-download existing files |
 | `SN_SKIP_INTEGRATION` | No | — | Set `1` to skip network integration test in CI |
 | `SN_HOST` | No | `127.0.0.1` | Bind host when using `python app.py` directly |
 | `SN_PORT` | No | `8787` | Bind port when using `python app.py` directly |
@@ -164,8 +229,9 @@ default = ["audio_hq"]
 | `GET` | `/api/catalog` | Latest episode + recent archive entries |
 | `GET` | `/api/status` | Full job snapshot (counts + all jobs) |
 | `GET` | `/api/history` | Recent JSONL history events (`?limit=50`) |
+| `GET` | `/api/jobs/history` | Aggregated batch history (`?limit=20`) |
 | `POST` | `/api/download/estimate` | Disk check + job count for a batch spec |
-| `POST` | `/api/download` | Start a download batch (`retry_failed: true` to re-queue failures) |
+| `POST` | `/api/download` | Start batch (`client_token`, `callback_url`, `retry_failed`) |
 | `POST` | `/api/cancel` | Cancel the running batch |
 | `WS` | `/ws` | Live events: `snapshot`, `batch_started`, `job_updated`, `batch_finished` |
 
@@ -237,7 +303,11 @@ security-now-dashboard/
 │   ├── metadata.py        # per-episode sidecars
 │   └── models.py          # Job/media enums
 ├── config.toml.example    # Sample config
-├── test_integration.py    # Network integration test
+├── sn-download              # CLI launcher
+├── test_cli.py              # CLI smoke tests
+├── test_integration.py      # Network integration test
+├── docker-compose.cli.yml   # One-shot CLI compose overlay
+├── deploy/systemd/          # Cron/systemd examples
 ├── static/
 │   ├── index.html         # Dashboard shell
 │   ├── styles.css         # Terminal-style UI
@@ -316,7 +386,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 | Phase | Theme | Status |
 |-------|--------|--------|
 | **1** | Foundation — downloader + live dashboard | Shipped (v1.1.0) |
-| **2** | CLI & automation — bash parity, cron, JSON output | Planned |
+| **2** | CLI & automation — bash parity, cron, JSON output | Shipped (v1.2.0) |
 | **3** | Library & discovery — RSS, transcript search, gap reports | Planned |
 | **4** | Dashboard & UX — library browser, charts, mobile | Planned |
 | **5** | Homelab production — Saltbox, watcher, Notifier hooks | Planned |
@@ -325,6 +395,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.2.0** | 2026-07-08 | Phase 2 — headless CLI, systemd/docker recipes, API hardening |
 | **1.1.0** | 2026-07-08 | Phase 1 polish — video, config, history, retry, metadata sidecars |
 | **1.0.0** | 2026-07-08 | Initial release — downloader + live dashboard + Docker + CI |
 

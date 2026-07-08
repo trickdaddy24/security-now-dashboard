@@ -14,3 +14,10 @@ default = ["audio_hq"]
 
 [history]
 # file = "./downloads/.sn-history.jsonl"
+
+# CLI / cron (also available as SN_* env vars):
+# SN_EPISODES=next
+# SN_MEDIA=audio_hq,show_notes
+# SN_QUIET=1
+# SN_JSON=0
+# SN_PRETEND=0

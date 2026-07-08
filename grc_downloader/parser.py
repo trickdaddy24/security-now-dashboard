@@ -30,13 +30,18 @@ def media_url(episode: int, media: MediaType) -> str:
     return mapping[media]
 
 
-async def fetch_catalog(client: httpx.AsyncClient | None = None) -> tuple[list[EpisodeInfo], int]:
+async def fetch_catalog(
+    client: httpx.AsyncClient | None = None,
+    *,
+    verify_ssl: bool = True,
+) -> tuple[list[EpisodeInfo], int]:
     """Return episodes from the GRC archive page (newest first) and latest episode number."""
     owns = client is None
     if owns:
         client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
+            verify=verify_ssl,
             headers={"User-Agent": USER_AGENT},
         )
     try:

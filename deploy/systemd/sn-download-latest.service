@@ -1,0 +1,16 @@
+[Unit]
+Description=Security Now — download latest HQ audio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+WorkingDirectory=/opt/security-now-dashboard
+Environment=SN_DOWNLOAD_DIR=/data/downloads
+Environment=SN_QUIET=1
+ExecStart=/opt/security-now-dashboard/.venv/bin/python -m grc_downloader -latest -ahq -q
+# Or: ExecStart=/usr/local/bin/sn-download -latest -ahq -q
+
+[Install]
+WantedBy=multi-user.target

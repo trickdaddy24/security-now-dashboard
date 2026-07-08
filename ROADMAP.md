@@ -11,7 +11,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 | Phase | Theme | Status |
 |-------|--------|--------|
 | **1** | Foundation — downloader + live dashboard | **Shipped** (v1.1.0) |
-| **2** | CLI & automation — bash-script parity, scripting | Planned |
+| **2** | CLI & automation — bash-script parity, scripting | **Shipped** (v1.2.0) |
 | **3** | Library & discovery — RSS, search, media library | Planned |
 | **4** | Dashboard & UX — polish, browsing, insights | Planned |
 | **5** | Homelab production — Saltbox, auth, watchers, integrations | Planned |
@@ -58,31 +58,33 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 **Why:** Vacation mode, nightly cron on Saltbox, and scripting (`sn-download -latest -ahq`) should work without the dashboard.
 
+**Status:** Shipped in **v1.2.0** (July 2026).
+
 ### CLI (`sn-download` or `python -m grc_downloader`)
 
-- [ ] Flag mapping from `GRC-Downloader.sh`:
-  - [ ] `-ep N` / `-ep N:M` / `-ep N:latest`
-  - [ ] `-latest`, `-all`, implicit `next` when no episode flags
-  - [ ] `-ahq`, `-alq`, `-vhd`, `-vhq`, `-vlq`
-  - [ ] `-eptxt`, `-eppdf`, `-ephtml`, `-epnotes`
-  - [ ] `-d PATH`, `-pd N`, `-p` (pretend/dry-run), `-q` (quiet)
-  - [ ] `-skip-digital-cert-check` → httpx `verify=False`
-- [ ] `-u` self-update check against GitHub release (optional, not auto-replace)
-- [ ] Exit codes: `0` success, `1` partial failure, `2` usage error, `3` disk space
-- [ ] Progress to stderr (human) or `--json` (machine) for piping to Notifier/scripts
+- [x] Flag mapping from `GRC-Downloader.sh`:
+  - [x] `-ep N` / `-ep N:M` / `-ep N:latest`
+  - [x] `-latest`, `-all`, implicit `next` when no episode flags
+  - [x] `-ahq`, `-alq`, `-vhd`, `-vhq`, `-vlq`
+  - [x] `-eptxt`, `-eppdf`, `-ephtml`, `-epnotes`
+  - [x] `-d PATH`, `-pd N`, `-p` (pretend/dry-run), `-q` (quiet)
+  - [x] `-skip-digital-cert-check` → httpx `verify=False`
+- [x] `-u` self-update check against GitHub release (optional, not auto-replace)
+- [x] Exit codes: `0` success, `1` partial failure, `2` usage error, `3` disk space
+- [x] Progress to stderr (human) or `--json` (machine) for piping to Notifier/scripts
 
 ### Scheduling & automation
 
-- [ ] Systemd timer unit example (`sn-download-latest.service` + `.timer`)
-- [ ] Cron one-liner docs for weekly “catch up from `next`”
-- [ ] `docker compose run` recipe for one-shot downloads without keeping dashboard up
-- [ ] Environment-only mode: all options via `SN_*` env vars (12-factor)
+- [x] Systemd timer unit example (`sn-download-latest.service` + `.timer`)
+- [x] Cron one-liner docs for weekly “catch up from `next`”
+- [x] `docker compose run` recipe for one-shot downloads without keeping dashboard up
+- [x] Environment-only mode: all options via `SN_*` env vars (12-factor)
 
 ### API hardening (headless clients)
 
-- [ ] `GET /api/jobs/history` — last N batches from Phase 1 log
-- [ ] Idempotent `POST /api/download` with `client_token` to avoid duplicate batches
-- [ ] Webhook callback URL on batch complete (`?callback=https://…`)
+- [x] `GET /api/jobs/history` — last N batches from Phase 1 log
+- [x] Idempotent `POST /api/download` with `client_token` to avoid duplicate batches
+- [x] Webhook callback URL on batch complete (`callback_url` in POST body)
 
 **Success criteria:** `sn-download -latest -ahq -q` in cron downloads the newest episode with no UI; JSON mode usable from bash.
 
