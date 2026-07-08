@@ -16,7 +16,8 @@ services:
           cpus: "2.0"
           memory: 1G
     volumes:
-      - ./data/downloads:/data/downloads
+      # Plex library — episodes appear in Plex without manual copy
+      - /mnt/local/Media/grc:/data/downloads
     networks:
       - saltbox
     labels:
