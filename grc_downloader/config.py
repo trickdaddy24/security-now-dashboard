@@ -14,7 +14,7 @@ class AppConfig:
     parallel: int = 2
     skip_existing: bool = True
     filename_format: str = "raw"
-    default_media: list[str] = field(default_factory=lambda: ["audio_hq"])
+    default_media: list[str] = field(default_factory=lambda: ["audio_twit"])
     verify_ssl: bool = True
     min_free_mb: int = 500
     history_file: Path | None = None

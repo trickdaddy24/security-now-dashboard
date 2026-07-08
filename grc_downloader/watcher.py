@@ -57,7 +57,7 @@ async def run_watcher_loop(
     default_media: list[str] | None = None,
 ) -> None:
     interval = max(0.5, interval_hours) * 3600.0
-    media = default_media or ["audio_hq"]
+    media = default_media or ["audio_twit"]
     log.info("Episode watcher started (every %.1fh)", interval_hours)
     while True:
         try:

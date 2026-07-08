@@ -10,7 +10,7 @@ min_free_mb = 500
 verify_ssl = true
 
 [media]
-default = ["audio_hq"]
+default = ["audio_twit"]
 
 [history]
 # file = "./downloads/.sn-history.jsonl"

@@ -10,6 +10,21 @@ All notable changes to this project are documented here. Format follows
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
 
+## [1.7.0] - 2026-07-08
+
+### Added
+- **Telegram** — per-download alerts, 6h heartbeat, Insights tab status + Send test
+- **Dashboard event log** — tails `SN_LOG_FILE`, live on Downloads tab
+- **Batch by time** — last N days/weeks/months with size estimate
+- **Media chips** — quick toggles with per-type size hints
+- **Period-synced episode picker** — wide column layout, filters by air date
+
+### Changed
+- **Default audio** — TWiT CDN (`audio_twit`); GRC audio hidden from dashboard (API/CLI still support `audio_hq`)
+- **FIFA themes** — Terminal, USA, Argentina + 7 countries (Mexico, Canada, Brazil, France, Germany, England, Spain)
+- **Library scan** — faster default (skip checksums), loading progress bar
+- **Downloads UI** — decluttered media/episode controls, consolidated estimate line
+
 ## [1.6.0] - 2026-07-08
 
 ### Added
@@ -132,7 +147,8 @@ All notable changes to this project are documented here. Format follows
 - Docker image and `docker-compose.yml` with health check
 - Project documentation suite (README, ROADMAP, CONTRIBUTING, LICENSE)
 
-[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.4.0

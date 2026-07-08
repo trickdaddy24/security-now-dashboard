@@ -5,7 +5,7 @@
 [![Tests](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/trickdaddy24/security-now-dashboard/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-1.6.0-3DFF9A.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-3DFF9A.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Python fork of [Seth Leedy's GRC Security Now downloader](https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT) with a **real-time WebSocket dashboard** — watch episode downloads, speed, and queue status live in the browser.
@@ -201,7 +201,7 @@ filename_format = "raw"   # raw | ordered | kodi
 min_free_mb = 500
 
 [media]
-default = ["audio_hq"]
+default = ["audio_twit"]
 ```
 
 ## Environment Variables
@@ -215,7 +215,7 @@ default = ["audio_hq"]
 | `SN_VERIFY_SSL` | No | `true` | Set `false` to skip TLS verification |
 | `SN_HISTORY_FILE` | No | `<download_dir>/.sn-history.jsonl` | JSONL history path |
 | `SN_EPISODES` | No | — | CLI episode spec (`next`, `latest`, `1080:1086`) |
-| `SN_MEDIA` | No | `audio_hq` | Comma-separated default media (CLI + API) |
+| `SN_MEDIA` | No | `audio_twit` | Comma-separated default media (CLI + API) |
 | `SN_QUIET` | No | — | CLI: suppress stderr progress |
 | `SN_JSON` | No | — | CLI: JSON output on stdout |
 | `SN_PRETEND` | No | — | CLI: dry-run mode |
@@ -424,6 +424,7 @@ Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
 | Version | Date | Notes |
 |---|---|---|
+| **1.7.0** | 2026-07-08 | Telegram alerts, event log, period batch + picker, TWiT audio default, UI declutter |
 | **1.6.0** | 2026-07-08 | Production polish — Authelia deploy, Plex mount, TWiT video fix, episode folders, library playback, FIFA themes |
 | **1.5.0** | 2026-07-08 | Phase 5 — Saltbox deploy, auth, watcher, Prometheus, integrations |
 | **1.4.0** | 2026-07-08 | Phase 4 — episode picker, ETA/sparklines, insights, theme, PWA |

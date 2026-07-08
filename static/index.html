@@ -43,7 +43,7 @@
         <input type="checkbox" id="notifyToggle" />
         <span>Notify</span>
       </label>
-      <span class="version-badge" id="versionBadge" title="Application version">v1.6.0</span>
+      <span class="version-badge" id="versionBadge" title="Application version">v1.7.0</span>
       <div class="status-pill" id="connStatus">
         <span class="dot"></span>
         <span>Connecting…</span>
@@ -86,10 +86,8 @@
 
           <fieldset class="media-grid">
             <legend>Media</legend>
-            <p class="muted media-source-hint">GRC and TWiT are different hosts for the same episode (~75 MB) — pick <strong>one</strong> audio source, not both.</p>
             <div class="media-toolbar">
-              <button type="button" class="chip-btn" data-media="audio_hq" data-size="GRC · ~75 MB">GRC audio</button>
-              <button type="button" class="chip-btn" data-media="audio_twit" data-size="TWiT · ~75 MB">TWiT audio</button>
+              <button type="button" class="chip-btn" data-media="audio_twit" data-size="~75 MB">TWiT audio</button>
               <button type="button" class="chip-btn" data-media="video_hd" data-size="~2 GB">Video HD</button>
               <button type="button" class="chip-btn" data-media="transcript_txt" data-size="~200 KB">Transcript .txt</button>
               <button type="button" class="chip-btn" data-media="transcript_pdf" data-size="~400 KB">Transcript .pdf</button>
@@ -98,8 +96,7 @@
               <button type="button" class="btn tiny" id="clearMediaBtn">Clear</button>
             </div>
             <div class="media-hidden" aria-hidden="true">
-              <input type="checkbox" name="media" value="audio_hq" checked />
-              <input type="checkbox" name="media" value="audio_twit" />
+              <input type="checkbox" name="media" value="audio_twit" checked />
               <input type="checkbox" name="media" value="video_hd" />
               <input type="checkbox" name="media" value="transcript_txt" />
               <input type="checkbox" name="media" value="transcript_pdf" />
@@ -287,7 +284,7 @@
   </div>
 
   <footer class="footer">
-    <span class="footer-version" id="footerVersion">v1.6.0</span> · Inspired by Seth Leedy's bash downloader
+    <span class="footer-version" id="footerVersion">v1.7.0</span> · Inspired by Seth Leedy's bash downloader
   </footer>
 
   <script src="/static/app.js"></script>
