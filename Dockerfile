@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py sn-download ./
+COPY app.py sn-download VERSION ./
 COPY grc_downloader/ ./grc_downloader/
 COPY static/ ./static/
 RUN chmod +x sn-download
