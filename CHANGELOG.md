@@ -10,6 +10,15 @@ All notable changes to this project are documented here. Format follows
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
 
+## [1.8.1] - 2026-07-08
+
+### Added
+- **Telegram startup notification** on container start/deploy with version, public URL, and external IP
+- **`SN_EXTERNAL_IP`** env override (set on Saltbox to `138.201.28.235`); falls back to ipify lookup
+
+### Changed
+- **All Telegram alerts** (heartbeat, downloads, batches, watcher, test) include `v{version}` and public host IP instead of Docker bridge IP
+
 ## [1.8.0] - 2026-07-08
 
 ### Added

@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from grc_downloader.heartbeat import build_heartbeat_message
+from grc_downloader.host_info import build_telegram_message
 from grc_downloader.integrations import notify_telegram
 from grc_downloader.log_tail import tail_log_events
 
@@ -41,11 +42,30 @@ def test_build_heartbeat_message() -> None:
             watcher_enabled=True,
             watcher_interval_hours=6,
             latest_episode=1086,
+            external_ip="138.201.28.235",
+            public_url="https://sn.aaa.stunna.xyz",
         )
     assert "Security Now heartbeat" in msg
+    assert "v1." in msg
+    assert "138.201.28.235" in msg
+    assert "sn.aaa.stunna.xyz" in msg
     assert "batch running" in msg
     assert "watcher on" in msg
     assert "#1086" in msg
+
+
+def test_build_telegram_message() -> None:
+    msg = build_telegram_message(
+        "Security Now — batch finished",
+        version="1.8.1",
+        external_ip="138.201.28.235",
+        public_url="https://sn.aaa.stunna.xyz",
+        extra_lines=["Batch abc: 2 completed, 0 failed"],
+    )
+    assert "v1.8.1" in msg
+    assert "138.201.28.235" in msg
+    assert "sn.aaa.stunna.xyz" in msg
+    assert "2 completed" in msg
 
 
 async def _test_notify_telegram_no_credentials() -> None:
@@ -76,6 +96,7 @@ def test_notify_telegram_posts() -> None:
 if __name__ == "__main__":
     test_tail_log_events_json_and_plain()
     test_build_heartbeat_message()
+    test_build_telegram_message()
     test_notify_telegram_no_credentials()
     test_notify_telegram_posts()
     print("telegram ok")

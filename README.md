@@ -212,6 +212,7 @@ default = ["audio_twit"]
 | `SN_PARALLEL` | No | `2` | Default parallel download count |
 | `SN_FILENAME_FORMAT` | No | `kodi` | Plex/Kodi naming preset (`kodi` recommended) |
 | `SN_FETCH_THUMBS` | No | `true` | Download TWiT episode thumbnails as `-thumb.jpg` / `-fanart.jpg` beside videos |
+| `SN_EXTERNAL_IP` | No | ipify lookup | Public server IP shown in Telegram alerts (use on Docker hosts) |
 | `SN_MIN_FREE_MB` | No | `500` | Minimum free disk MB before starting a batch |
 | `SN_VERIFY_SSL` | No | `true` | Set `false` to skip TLS verification |
 | `SN_HISTORY_FILE` | No | `<download_dir>/.sn-history.jsonl` | JSONL history path |

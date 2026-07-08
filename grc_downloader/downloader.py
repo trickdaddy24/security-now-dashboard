@@ -15,7 +15,9 @@ import httpx
 from .config import AppConfig
 from .disk import check_disk_space, free_bytes
 from .filenames import build_filename
+from .host_info import build_telegram_message, resolve_external_ip
 from .integrations import notify_discord, notify_telegram, post_webhook, write_plex_hint
+from .version import get_version
 from .lockfile import DownloadDirLock
 from .history import (
     append_history,
@@ -444,10 +446,17 @@ class DownloadManager:
             description=msg,
             verify_ssl=self.config.verify_ssl,
         )
+        ext_ip = await resolve_external_ip(verify_ssl=self.config.verify_ssl)
         await notify_telegram(
             self.config.telegram_bot_token,
             self.config.telegram_chat_id,
-            f"Security Now — batch finished\n{msg}",
+            build_telegram_message(
+                "Security Now — batch finished",
+                version=get_version(),
+                external_ip=ext_ip,
+                public_url=self.config.rss_base_url,
+                extra_lines=[msg],
+            ),
             verify_ssl=self.config.verify_ssl,
         )
         if completed > 0:
@@ -648,15 +657,29 @@ class DownloadManager:
             size_mb = size / (1024 * 1024)
             title = job.title or job.filename
             asyncio.create_task(
-                notify_telegram(
-                    self.config.telegram_bot_token,
-                    self.config.telegram_chat_id,
-                    (
-                        f"✅ Security Now download complete\n"
-                        f"EP {job.episode} · {job.media.value}\n"
-                        f"{title}\n"
-                        f"{job.filename} ({size_mb:.1f} MB)"
-                    ),
-                    verify_ssl=self.config.verify_ssl,
-                )
+                self._notify_job_complete_telegram(job, title, size_mb)
             )
+
+    async def _notify_job_complete_telegram(
+        self,
+        job: DownloadJob,
+        title: str,
+        size_mb: float,
+    ) -> None:
+        ext_ip = await resolve_external_ip(verify_ssl=self.config.verify_ssl)
+        await notify_telegram(
+            self.config.telegram_bot_token,
+            self.config.telegram_chat_id,
+            build_telegram_message(
+                "✅ Security Now download complete",
+                version=get_version(),
+                external_ip=ext_ip,
+                public_url=self.config.rss_base_url,
+                extra_lines=[
+                    f"EP {job.episode} · {job.media.value}",
+                    title,
+                    f"{job.filename} ({size_mb:.1f} MB)",
+                ],
+            ),
+            verify_ssl=self.config.verify_ssl,
+        )

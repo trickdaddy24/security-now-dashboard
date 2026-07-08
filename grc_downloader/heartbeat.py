@@ -2,25 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
 from .disk import free_bytes
+from .host_info import format_host_line, resolve_external_ip
 from .integrations import notify_telegram
 from .version import get_version
 
 log = logging.getLogger(__name__)
-
-
-def _local_ip() -> str:
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except OSError:
-        return "unknown"
 
 
 def build_heartbeat_message(
@@ -31,8 +22,9 @@ def build_heartbeat_message(
     watcher_enabled: bool,
     watcher_interval_hours: float,
     latest_episode: int,
+    external_ip: str,
+    public_url: str | None = None,
 ) -> str:
-    host = socket.gethostname()
     version = get_version()
     free = free_bytes(download_dir)
     free_gb = free / (1024**3) if free else 0
@@ -49,13 +41,16 @@ def build_heartbeat_message(
         else "watcher off"
     )
     ep_line = f"GRC latest #{latest_episode}" if latest_episode else "GRC catalog pending"
-    return (
-        f"💓 Security Now heartbeat — {now}\n"
-        f"🖥️ {host} | 🌐 {_local_ip()} | v{version}\n"
-        f"📁 {download_dir} · {free_gb:.1f} GB free\n"
-        f"⬇️ {batch_line} · {watcher_line}\n"
-        f"📻 {ep_line}"
-    )
+    lines = [
+        f"💓 Security Now heartbeat · v{version} — {now}",
+        format_host_line(external_ip=external_ip),
+        f"📁 {download_dir} · {free_gb:.1f} GB free",
+        f"⬇️ {batch_line} · {watcher_line}",
+        f"📻 {ep_line}",
+    ]
+    if public_url:
+        lines.insert(2, f"🔗 {public_url}")
+    return "\n".join(lines)
 
 
 async def run_heartbeat_loop(
@@ -74,6 +69,7 @@ async def run_heartbeat_loop(
     while True:
         try:
             snap = status_cb()
+            external_ip = await resolve_external_ip(verify_ssl=verify_ssl)
             msg = build_heartbeat_message(
                 download_dir=Path(snap.get("download_dir", ".")),
                 running=bool(snap.get("running")),
@@ -81,6 +77,8 @@ async def run_heartbeat_loop(
                 watcher_enabled=bool(snap.get("watcher_enabled")),
                 watcher_interval_hours=float(snap.get("watcher_interval_hours") or 6),
                 latest_episode=int(snap.get("latest_episode") or 0),
+                external_ip=external_ip,
+                public_url=snap.get("public_url"),
             )
             ok = await notify_telegram(
                 bot_token,

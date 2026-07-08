@@ -36,6 +36,7 @@ from grc_downloader.search import index_transcripts, search_index_status, search
 from grc_downloader.insights import batch_timeline, library_csv, weekly_downloads
 from grc_downloader.version import get_version
 from grc_downloader.heartbeat import run_heartbeat_loop
+from grc_downloader.host_info import build_telegram_message, resolve_external_ip
 from grc_downloader.log_tail import tail_log_events
 from grc_downloader.kodi_migrate import migrate_filenames_to_kodi
 from grc_downloader.twit_thumbs import fetch_thumbs_for_library
@@ -138,6 +139,7 @@ async def lifespan(app: FastAPI):
                 discord_url=CONFIG.discord_webhook_url,
                 telegram_token=CONFIG.telegram_bot_token,
                 telegram_chat_id=CONFIG.telegram_chat_id,
+                public_url=CONFIG.rss_base_url,
                 default_media=CONFIG.default_media,
             )
         )
@@ -151,7 +153,39 @@ async def lifespan(app: FastAPI):
             "watcher_enabled": CONFIG.watcher_enabled,
             "watcher_interval_hours": CONFIG.watcher_interval_hours,
             "latest_episode": _latest_episode,
+            "public_url": CONFIG.rss_base_url,
         }
+
+    async def _notify_startup() -> None:
+        if not CONFIG.telegram_bot_token or not CONFIG.telegram_chat_id:
+            return
+        try:
+            from datetime import datetime, timezone
+
+            ext_ip = await resolve_external_ip(verify_ssl=CONFIG.verify_ssl)
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            msg = build_telegram_message(
+                "🚀 Security Now dashboard started",
+                version=APP_VERSION,
+                external_ip=ext_ip,
+                public_url=CONFIG.rss_base_url,
+                extra_lines=[f"🕐 {now}"],
+            )
+            ok = await notify_telegram(
+                CONFIG.telegram_bot_token,
+                CONFIG.telegram_chat_id,
+                msg,
+                verify_ssl=CONFIG.verify_ssl,
+            )
+            if ok:
+                log.info("Telegram startup notification sent (v%s)", APP_VERSION)
+            else:
+                log.warning("Telegram startup notification failed")
+        except Exception:
+            log.exception("Telegram startup notification error")
+
+    if CONFIG.telegram_bot_token and CONFIG.telegram_chat_id:
+        asyncio.create_task(_notify_startup())
 
     if CONFIG.telegram_bot_token and CONFIG.telegram_chat_id and CONFIG.heartbeat_interval_hours > 0:
         _heartbeat_task = asyncio.create_task(
@@ -675,7 +709,13 @@ async def integrations_status() -> dict[str, Any]:
 async def integrations_telegram_test() -> dict[str, Any]:
     if not CONFIG.telegram_bot_token or not CONFIG.telegram_chat_id:
         return {"ok": False, "error": "Telegram not configured (SN_TELEGRAM_BOT_TOKEN / SN_TELEGRAM_CHAT_ID)"}
-    msg = f"✅ Security Now — Telegram test OK (v{APP_VERSION})"
+    ext_ip = await resolve_external_ip(verify_ssl=CONFIG.verify_ssl)
+    msg = build_telegram_message(
+        "✅ Security Now — Telegram test OK",
+        version=APP_VERSION,
+        external_ip=ext_ip,
+        public_url=CONFIG.rss_base_url,
+    )
     ok = await notify_telegram(
         CONFIG.telegram_bot_token,
         CONFIG.telegram_chat_id,

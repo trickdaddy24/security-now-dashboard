@@ -215,6 +215,7 @@ def load_config() -> AppConfig:
     if env := os.getenv("SN_PUBLIC_URL"):
         if not cfg.rss_base_url:
             cfg.rss_base_url = env
+    # SN_EXTERNAL_IP is read at runtime by host_info.resolve_external_ip()
 
     cfg.download_dir.mkdir(parents=True, exist_ok=True)
     return cfg
