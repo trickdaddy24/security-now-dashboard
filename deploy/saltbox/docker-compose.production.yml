@@ -18,6 +18,7 @@ services:
     volumes:
       # Plex library — episodes appear in Plex without manual copy
       - /mnt/local/Media/grc:/data/downloads
+      - ./logs:/var/log/security-now
     networks:
       - saltbox
     labels:

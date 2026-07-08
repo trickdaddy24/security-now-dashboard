@@ -34,6 +34,7 @@ class AppConfig:
     discord_webhook_url: str | None = None
     log_json: bool = False
     log_level: str = "INFO"
+    log_file: Path | None = None
     part_cleanup_days: int = 7
     require_download_lock: bool = True
 
@@ -169,6 +170,8 @@ def load_config() -> AppConfig:
         cfg.log_json = env.lower() in ("1", "true", "yes")
     if env := os.getenv("SN_LOG_LEVEL"):
         cfg.log_level = env
+    if env := os.getenv("SN_LOG_FILE"):
+        cfg.log_file = Path(env).expanduser()
     if env := os.getenv("SN_PART_CLEANUP_DAYS"):
         cfg.part_cleanup_days = int(env)
     if env := os.getenv("SN_REQUIRE_DOWNLOAD_LOCK"):

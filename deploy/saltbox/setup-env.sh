@@ -18,6 +18,7 @@ SN_WATCHER_INTERVAL_HOURS=6
 SN_PUBLIC_URL=https://sn.aaa.stunna.xyz
 SN_LOG_JSON=1
 SN_LOG_LEVEL=INFO
+SN_LOG_FILE=/var/log/security-now/app.log
 SN_DISCORD_WEBHOOK=${DISCORD}
 EOF
 chmod 600 .env.production

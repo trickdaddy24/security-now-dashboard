@@ -99,9 +99,18 @@ async def lifespan(app: FastAPI):
     _rate_limiter = RateLimiter(max_per_minute=CONFIG.rate_limit_per_minute)
 
     if CONFIG.log_json:
-        setup_json_logging(CONFIG.log_level)
+        setup_json_logging(CONFIG.log_level, log_file=CONFIG.log_file)
     else:
         logging.basicConfig(level=getattr(logging, CONFIG.log_level.upper(), logging.INFO))
+        if CONFIG.log_file:
+            from logging.handlers import RotatingFileHandler
+
+            CONFIG.log_file.parent.mkdir(parents=True, exist_ok=True)
+            fh = RotatingFileHandler(
+                CONFIG.log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+            )
+            fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+            logging.getLogger().addHandler(fh)
 
     removed = cleanup_stale_parts(CONFIG.download_dir, CONFIG.part_cleanup_days)
     if removed:

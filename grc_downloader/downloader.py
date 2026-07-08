@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 import uuid
@@ -25,9 +26,29 @@ from .history import (
 )
 from .metadata import update_sidecar
 from .models import DownloadJob, DownloadTask, JobStatus, MediaType
+from .logging_config import log_download_event
 from .parser import media_url
 
+log = logging.getLogger(__name__)
+
 BroadcastFn = Callable[[dict[str, Any]], Awaitable[None]]
+
+_VIDEO_MEDIA = frozenset({MediaType.VIDEO_HD, MediaType.VIDEO_HQ, MediaType.VIDEO_LQ})
+
+
+def _download_error_message(job: DownloadJob, status_code: int | None, exc: Exception | None = None) -> str:
+    if status_code == 404:
+        if job.media in _VIDEO_MEDIA:
+            return (
+                f"HTTP 404 — TWiT video for episode {job.episode} is not on the CDN yet "
+                f"(video often publishes days after audio). Try Audio HQ only."
+            )
+        return f"HTTP 404 — {job.media.value} for episode {job.episode} not found at source"
+    if status_code:
+        return f"HTTP {status_code} — {job.media.value} ep {job.episode} ({job.url})"
+    if exc:
+        return str(exc)
+    return f"Download failed — {job.media.value} ep {job.episode}"
 
 EPISODE_RE = re.compile(r"sn-(\d{4})")
 BATCH_STATE_FILE = ".sn-last-batch.json"
@@ -252,6 +273,21 @@ class DownloadManager:
             )
 
             self._running = True
+            log_download_event(
+                log,
+                logging.INFO,
+                "batch_started",
+                batch_id=self._batch_id,
+                episode=episodes[-1] if len(episodes) == 1 else None,
+            )
+            log.info(
+                "Download batch %s: episodes=%s media=%s jobs=%d parallel=%d",
+                self._batch_id,
+                episodes,
+                [m.value for m in media_types],
+                len(self._order),
+                par,
+            )
             await self._emit("batch_started")
 
         asyncio.create_task(self._run_queue(par))
@@ -348,6 +384,14 @@ class DownloadManager:
                     self.history_path,
                     batch_finished_record(self._batch_id, snap["counts"]),
                 )
+            counts = snap["counts"]
+            log.info(
+                "Download batch %s finished: completed=%d failed=%d skipped=%d",
+                self._batch_id,
+                counts.get("completed", 0),
+                counts.get("failed", 0),
+                sum(1 for j in snap["jobs"] if j["status"] == "skipped"),
+            )
             await self._emit("batch_finished")
             if self._callback_url:
                 asyncio.create_task(self._fire_callback(snap))
@@ -395,6 +439,17 @@ class DownloadManager:
         job.started_at = time.time()
         job.bytes_downloaded = part.stat().st_size if part.exists() else 0
         job.speed_bps = 0.0
+        log_download_event(
+            log,
+            logging.INFO,
+            "job_started",
+            batch_id=self._batch_id,
+            job_id=job_id,
+            episode=job.episode,
+            media=job.media.value,
+            url=job.url,
+            filename=job.filename,
+        )
         await self._emit("job_updated", {"job": job.to_dict()})
 
         headers = {"User-Agent": "SecurityNowDashboard/1.1"}
@@ -420,9 +475,23 @@ class DownloadManager:
 
         except Exception as exc:  # noqa: BLE001
             self._errors_total += 1
+            status_code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) and exc.response else None
             job.status = JobStatus.FAILED
-            job.error = str(exc)
+            job.error = _download_error_message(job, status_code, exc)
             job.finished_at = time.time()
+            log_download_event(
+                log,
+                logging.ERROR,
+                "job_failed",
+                batch_id=self._batch_id,
+                job_id=job_id,
+                episode=job.episode,
+                media=job.media.value,
+                url=job.url,
+                status_code=status_code,
+                filename=job.filename,
+            )
+            log.error("Job failed ep %s %s: %s", job.episode, job.media.value, job.error)
             await self._emit("job_updated", {"job": job.to_dict()})
             if self._batch_id:
                 append_history(self.history_path, job_finished_record(self._batch_id, job.to_dict()))
@@ -451,8 +520,18 @@ class DownloadManager:
                         await self._finish_job(job, dest)
                         return
                     if resp.status_code not in (200, 206):
+                        log_download_event(
+                            log,
+                            logging.WARNING,
+                            "upstream_http_error",
+                            episode=job.episode,
+                            media=job.media.value,
+                            url=str(resp.request.url),
+                            status_code=resp.status_code,
+                            job_id=job_id,
+                        )
                         raise httpx.HTTPStatusError(
-                            f"HTTP {resp.status_code}",
+                            _download_error_message(job, resp.status_code),
                             request=resp.request,
                             response=resp,
                         )
