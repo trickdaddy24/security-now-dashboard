@@ -263,13 +263,15 @@ tar -xzf security-now-backup-YYYY-MM-DD.tar.gz
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the full plan. Highlights:
+Five phases — full detail in [ROADMAP.md](ROADMAP.md):
 
-- [ ] CLI parity with original `GRC-Downloader.sh` flags
-- [ ] RSS feed generation
-- [ ] Transcript full-text search
-- [ ] Saltbox Traefik compose example + optional auth
-- [ ] Notifier / Telegram webhook on new episode
+| Phase | Theme | Status |
+|-------|--------|--------|
+| **1** | Foundation — downloader + live dashboard | Shipped (v1.0.0) |
+| **2** | CLI & automation — bash parity, cron, JSON output | Planned |
+| **3** | Library & discovery — RSS, transcript search, gap reports | Planned |
+| **4** | Dashboard & UX — library browser, charts, mobile | Planned |
+| **5** | Homelab production — Saltbox, watcher, Notifier hooks | Planned |
 
 ## Version History
 
