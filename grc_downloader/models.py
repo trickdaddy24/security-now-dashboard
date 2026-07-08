@@ -92,8 +92,16 @@ class DownloadJob:
 
     def to_dict(self) -> dict[str, Any]:
         pct = None
+        eta_seconds: float | None = None
         if self.total_bytes and self.total_bytes > 0:
             pct = min(100.0, (self.bytes_downloaded / self.total_bytes) * 100.0)
+        if (
+            self.status == JobStatus.RUNNING
+            and self.speed_bps > 0
+            and self.total_bytes
+            and self.bytes_downloaded < self.total_bytes
+        ):
+            eta_seconds = (self.total_bytes - self.bytes_downloaded) / self.speed_bps
         return {
             "id": self.id,
             "episode": self.episode,
@@ -108,10 +116,22 @@ class DownloadJob:
             "percent": pct,
             "speed_bps": self.speed_bps,
             "speed_human": _human_speed(self.speed_bps),
+            "eta_seconds": eta_seconds,
+            "eta_human": _human_eta(eta_seconds),
             "error": self.error,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
         }
+
+
+def _human_eta(seconds: float | None) -> str:
+    if seconds is None or seconds <= 0:
+        return "—"
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+    return f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}m"
 
 
 def _human_speed(bps: float) -> str:

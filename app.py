@@ -22,6 +22,7 @@ from grc_downloader.library import library_summary, scan_library
 from grc_downloader.parser import fetch_catalog, parse_episode_range
 from grc_downloader.rss import FEED_NAMES, build_feeds, rss_status
 from grc_downloader.search import index_transcripts, search_index_status, search_transcripts
+from grc_downloader.insights import batch_timeline, library_csv, weekly_downloads
 from grc_downloader.version import get_version
 
 ROOT = Path(__file__).resolve().parent
@@ -223,10 +224,55 @@ async def cancel_download() -> dict[str, bool]:
     return {"ok": True}
 
 
+class ReorderRequest(BaseModel):
+    job_ids: list[str]
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str) -> dict[str, Any]:
+    ok, err = await get_manager().cancel_job(job_id)
+    return {"ok": ok, "error": err or None}
+
+
+@app.post("/api/jobs/reorder")
+async def reorder_jobs(req: ReorderRequest) -> dict[str, Any]:
+    ok, err = await get_manager().reorder_queue(req.job_ids)
+    return {"ok": ok, "error": err or None}
+
+
 @app.get("/api/library")
 async def library() -> dict[str, Any]:
     _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
-    return library_summary(CONFIG.download_dir, latest)
+    return library_summary(
+        CONFIG.download_dir,
+        latest,
+        disk_free_bytes=free_bytes(CONFIG.download_dir),
+    )
+
+
+@app.get("/api/library/export.csv")
+async def library_export() -> Response:
+    _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    summary = library_summary(CONFIG.download_dir, latest)
+    return Response(
+        content=library_csv(summary.get("episodes", [])),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=security-now-library.csv"},
+    )
+
+
+@app.get("/api/insights")
+async def insights() -> dict[str, Any]:
+    mgr = get_manager()
+    _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
+    local = mgr._local_next_episode()  # noqa: SLF001
+    return {
+        "timeline": batch_timeline(mgr.history_path, limit=30),
+        "weekly": weekly_downloads(mgr.history_path, days=90),
+        "latest_remote": latest,
+        "local_next": local,
+        "sync_ok": (local - 1 >= latest) if local and latest else None,
+    }
 
 
 @app.get("/api/search")
@@ -265,7 +311,11 @@ class RssRebuildRequest(BaseModel):
 @app.post("/api/library/fill-transcripts")
 async def fill_missing_transcripts() -> dict[str, Any]:
     _, latest = await fetch_catalog(verify_ssl=CONFIG.verify_ssl)
-    summary = library_summary(CONFIG.download_dir, latest)
+    summary = library_summary(
+        CONFIG.download_dir,
+        latest,
+        disk_free_bytes=free_bytes(CONFIG.download_dir),
+    )
     episodes = [
         item["episode"]
         for item in summary.get("missing_formats", [])

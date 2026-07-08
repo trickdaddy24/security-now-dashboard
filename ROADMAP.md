@@ -13,7 +13,7 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 | **1** | Foundation — downloader + live dashboard | **Shipped** (v1.1.0) |
 | **2** | CLI & automation — bash-script parity, scripting | **Shipped** (v1.2.0) |
 | **3** | Library & discovery — RSS, search, media library | **Shipped** (v1.3.0) |
-| **4** | Dashboard & UX — polish, browsing, insights | Planned |
+| **4** | Dashboard & UX — polish, browsing, insights | **Shipped** (v1.4.0) |
 | **5** | Homelab production — Saltbox, auth, watchers, integrations | Planned |
 
 ---
@@ -134,39 +134,39 @@ Phases are ordered by dependency: each phase builds on the last. Check boxes as 
 
 **Goal:** A dashboard worth leaving open on a second monitor — browse the archive, understand download health, enjoy using it.
 
-**Why:** Phase 1 proved live progress works; Phase 4 makes the product feel finished.
+**Status:** Shipped in **v1.4.0** (July 2026).
 
 ### Live operations UI
 
-- [ ] Episode picker — visual grid of recent 30 from catalog, click to queue
-- [ ] Drag-and-drop priority reorder for queued jobs
-- [ ] Per-job cancel (not only whole-batch cancel)
-- [ ] Sparkline: download speed over last 60s per active job
-- [ ] ETA column from bytes remaining ÷ speed
-- [ ] Sound/toast optional notification when batch completes (browser Notification API)
-- [ ] Dark/light theme toggle (keep terminal green as default)
-- [ ] Mobile-responsive layout for phone status checks on vacation
+- [x] Episode picker — visual grid of recent 30 from catalog, click to queue
+- [x] Drag-and-drop priority reorder for queued jobs
+- [x] Per-job cancel (not only whole-batch cancel)
+- [x] Sparkline: download speed over last 60s per active job
+- [x] ETA column from bytes remaining ÷ speed
+- [x] Sound/toast optional notification when batch completes (browser Notification API)
+- [x] Dark/light theme toggle (keep terminal green as default)
+- [x] Mobile-responsive layout for phone status checks on vacation
 
 ### Library browser
 
-- [ ] “Library” tab: table of episodes on disk (sort by #, date, size)
-- [ ] Inline play audio in browser (HTML5 `<audio>` for MP3)
-- [ ] Open transcript / show notes in modal or new tab
-- [ ] Filter: audio only, transcripts only, complete sets
-- [ ] Storage dashboard: total GB, breakdown by media type, disk free %
+- [x] “Library” tab: table of episodes on disk (sort by #, date, size)
+- [x] Inline play audio in browser (HTML5 `<audio>` for MP3)
+- [x] Open transcript / show notes in modal or new tab
+- [x] Filter: audio only, transcripts only, complete sets
+- [x] Storage dashboard: total GB, breakdown by media type, disk free %
 
 ### History & insights
 
-- [ ] Batch history timeline (from Phase 1 log): date, episodes, success/fail counts
-- [ ] Chart: downloads per week (last 90 days)
-- [ ] “Last sync” indicator vs GRC latest episode
-- [ ] Export CSV of library inventory
+- [x] Batch history timeline (from Phase 1 log): date, episodes, success/fail counts
+- [x] Chart: downloads per week (last 90 days)
+- [x] “Last sync” indicator vs GRC latest episode
+- [x] Export CSV of library inventory
 
 ### Quality
 
 - [ ] E2E smoke test (Playwright): load dashboard, mock WebSocket, assert UI renders
-- [ ] Accessibility pass: keyboard nav, ARIA on progress bars
-- [ ] PWA manifest — “Add to Home Screen” on iPad for homelab status
+- [x] Accessibility pass: keyboard nav, ARIA on progress bars
+- [x] PWA manifest — “Add to Home Screen” on iPad for homelab status
 
 **Success criteria:** User can browse 1000+ local episodes, play audio, and queue new downloads without reading README.
 

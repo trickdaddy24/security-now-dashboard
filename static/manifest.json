@@ -1,0 +1,17 @@
+{
+  "name": "Security Now Dashboard",
+  "short_name": "SN Dashboard",
+  "description": "Live Security Now download console and personal archive",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f0d",
+  "theme_color": "#3dff9a",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

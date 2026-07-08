@@ -45,6 +45,7 @@ class DownloadManager:
         self._lock = asyncio.Lock()
         self._batch_id: str | None = None
         self._callback_url: str | None = None
+        self._cancelled_jobs: set[str] = set()
 
     def snapshot(self) -> dict[str, Any]:
         jobs = [self.jobs[jid].to_dict() for jid in self._order if jid in self.jobs]
@@ -179,6 +180,7 @@ class DownloadManager:
                 return False, msg
 
             self._cancel = False
+            self._cancelled_jobs.clear()
             self.jobs.clear()
             self._order.clear()
             self._batch_id = new_batch_id()
@@ -233,6 +235,7 @@ class DownloadManager:
 
     async def _enqueue_failed_jobs(self, failed: list[dict[str, Any]], parallel: int) -> tuple[bool, str]:
         self._cancel = False
+        self._cancelled_jobs.clear()
         self.jobs.clear()
         self._order.clear()
         self._batch_id = new_batch_id()
@@ -266,15 +269,46 @@ class DownloadManager:
         self._cancel = True
         await self._emit("cancel_requested")
 
+    async def cancel_job(self, job_id: str) -> tuple[bool, str]:
+        job = self.jobs.get(job_id)
+        if not job:
+            return False, "Job not found"
+        if job.status == JobStatus.QUEUED:
+            job.status = JobStatus.CANCELLED
+            await self._emit("job_updated", {"job": job.to_dict()})
+            return True, ""
+        if job.status == JobStatus.RUNNING:
+            self._cancelled_jobs.add(job_id)
+            return True, ""
+        return False, f"Cannot cancel job in state {job.status.value}"
+
+    async def reorder_queue(self, job_ids: list[str]) -> tuple[bool, str]:
+        async with self._lock:
+            queued_ids = [jid for jid in self._order if self.jobs[jid].status == JobStatus.QUEUED]
+            if set(job_ids) != set(queued_ids) or len(job_ids) != len(queued_ids):
+                return False, "Job list must match current queued jobs"
+            new_order: list[str] = []
+            qi = 0
+            for jid in self._order:
+                if self.jobs[jid].status == JobStatus.QUEUED:
+                    new_order.append(job_ids[qi])
+                    qi += 1
+                else:
+                    new_order.append(jid)
+            self._order = new_order
+        await self._emit("queue_reordered")
+        return True, ""
+
     async def _run_queue(self, parallel: int) -> None:
         sem = asyncio.Semaphore(max(1, parallel))
         pending = [jid for jid in self._order if self.jobs[jid].status == JobStatus.QUEUED]
 
         async def worker(job_id: str) -> None:
             async with sem:
-                if self._cancel:
+                if self._cancel or job_id in self._cancelled_jobs:
                     job = self.jobs[job_id]
                     job.status = JobStatus.CANCELLED
+                    self._cancelled_jobs.discard(job_id)
                     await self._emit("job_updated", {"job": job.to_dict()})
                     return
                 await self._download_one(job_id)
@@ -359,9 +393,10 @@ class DownloadManager:
                     last_bytes = job.bytes_downloaded
                     with part.open(mode) as fh:
                         async for chunk in resp.aiter_bytes(64 * 1024):
-                            if self._cancel:
+                            if self._cancel or job_id in self._cancelled_jobs:
                                 job.status = JobStatus.CANCELLED
                                 job.finished_at = time.time()
+                                self._cancelled_jobs.discard(job_id)
                                 await self._emit("job_updated", {"job": job.to_dict()})
                                 return
                             fh.write(chunk)

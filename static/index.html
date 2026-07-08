@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#3dff9a" />
+  <link rel="manifest" href="/static/manifest.json" />
   <title>Security Now — Live Download Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,14 +19,17 @@
     <div class="brand">
       <span class="brand-mark">SN</span>
       <div>
-        <div class="brand-title-row">
-          <h1>Security Now</h1>
-          <span class="version-badge" id="versionBadge" title="Application version">v1.3.0</span>
-        </div>
+        <h1>Security Now</h1>
         <p class="subtitle">Live download console · fork of <a href="https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT" target="_blank" rel="noopener">GRC-Downloader</a></p>
       </div>
     </div>
     <div class="topbar-right">
+      <button type="button" class="btn icon-btn" id="themeToggle" title="Toggle light/dark theme" aria-label="Toggle theme">◐</button>
+      <label class="notify-toggle" title="Browser notification when batch completes">
+        <input type="checkbox" id="notifyToggle" />
+        <span>Notify</span>
+      </label>
+      <span class="version-badge" id="versionBadge" title="Application version">v1.4.0</span>
       <div class="status-pill" id="connStatus">
         <span class="dot"></span>
         <span>Connecting…</span>
@@ -32,21 +37,21 @@
     </div>
   </header>
 
-  <nav class="tabs" role="tablist">
+  <nav class="tabs" role="tablist" aria-label="Main sections">
     <button class="tab active" data-tab="downloads" role="tab" aria-selected="true">Downloads</button>
     <button class="tab" data-tab="library" role="tab">Library</button>
     <button class="tab" data-tab="search" role="tab">Search</button>
+    <button class="tab" data-tab="insights" role="tab">Insights</button>
   </nav>
 
   <main class="layout">
-    <!-- Downloads tab -->
     <div id="panel-downloads" class="tab-panel active">
       <section class="panel controls">
         <h2>Launch batch</h2>
         <form id="downloadForm">
           <label>
             Episodes
-            <input type="text" name="episodes" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
+            <input type="text" name="episodes" id="episodesInput" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
           </label>
 
           <fieldset class="media-grid">
@@ -83,6 +88,7 @@
           </div>
 
           <p class="disk-line muted" id="diskLine">Disk free: —</p>
+          <p class="sync-line muted" id="syncLine">GRC sync: —</p>
 
           <div class="actions">
             <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
@@ -92,8 +98,9 @@
         </form>
 
         <div class="catalog" id="catalog">
-          <h3>Archive feed</h3>
-          <p class="muted">Loading GRC catalog…</p>
+          <h3>Episode picker</h3>
+          <p class="muted" id="catalogMeta">Loading GRC catalog…</p>
+          <div class="episode-grid" id="episodeGrid" role="list"></div>
         </div>
       </section>
 
@@ -111,24 +118,42 @@
           <div class="throughput-value" id="throughput">0 B/s</div>
         </div>
 
-        <div class="job-list" id="jobList">
-          <p class="empty">No jobs yet. Start a batch to watch downloads live.</p>
+        <div class="job-list" id="jobList" role="list" aria-label="Download jobs">
+          <p class="empty">No jobs yet. Start a batch or click an episode above.</p>
         </div>
       </section>
     </div>
 
-    <!-- Library tab -->
     <div id="panel-library" class="tab-panel">
       <section class="panel controls">
         <h2>Local archive</h2>
-        <div class="lib-summary" id="libSummary">
-          <p class="muted">Loading library scan…</p>
+        <div class="lib-summary" id="libSummary"><p class="muted">Loading…</p></div>
+        <div class="storage-breakdown" id="storageBreakdown"></div>
+        <div class="row lib-controls">
+          <label>
+            Filter
+            <select id="libFilter">
+              <option value="all">All</option>
+              <option value="audio">Audio only</option>
+              <option value="transcript">Transcripts only</option>
+              <option value="complete">Complete sets</option>
+            </select>
+          </label>
+          <label>
+            Sort
+            <select id="libSort">
+              <option value="number-desc">Episode ↓</option>
+              <option value="number-asc">Episode ↑</option>
+              <option value="size-desc">Size ↓</option>
+              <option value="title-asc">Title A–Z</option>
+            </select>
+          </label>
         </div>
         <div class="actions">
-          <button type="button" class="btn" id="refreshLibBtn">Refresh scan</button>
-          <button type="button" class="btn" id="fillTranscriptsBtn">Download missing transcripts</button>
+          <button type="button" class="btn" id="refreshLibBtn">Refresh</button>
+          <button type="button" class="btn" id="fillTranscriptsBtn">Missing transcripts</button>
+          <a class="btn" id="exportCsvBtn" href="/api/library/export.csv" download>Export CSV</a>
         </div>
-
         <div class="rss-block">
           <h3>RSS feeds</h3>
           <p class="muted" id="rssStatus">Not built yet</p>
@@ -139,13 +164,10 @@
 
       <section class="panel dashboard">
         <h2>Episodes on disk</h2>
-        <div class="lib-table-wrap" id="libTable">
-          <p class="empty">No local episodes found.</p>
-        </div>
+        <div class="lib-table-wrap" id="libTable"><p class="empty">No episodes found.</p></div>
       </section>
     </div>
 
-    <!-- Search tab -->
     <div id="panel-search" class="tab-panel">
       <section class="panel controls">
         <h2>Transcript search</h2>
@@ -161,18 +183,38 @@
         </form>
         <p class="muted" id="searchStatus">Index: —</p>
       </section>
-
       <section class="panel dashboard">
         <h2>Results</h2>
-        <div class="search-results" id="searchResults">
-          <p class="empty">Search across local .txt transcripts.</p>
-        </div>
+        <div class="search-results" id="searchResults"><p class="empty">Search local .txt transcripts.</p></div>
+      </section>
+    </div>
+
+    <div id="panel-insights" class="tab-panel">
+      <section class="panel controls">
+        <h2>History</h2>
+        <p class="muted" id="insightsSync">Last sync: —</p>
+        <div class="timeline" id="batchTimeline"><p class="muted">Loading…</p></div>
+      </section>
+      <section class="panel dashboard">
+        <h2>Downloads per week</h2>
+        <canvas id="weeklyChart" width="600" height="200" aria-label="Weekly completed downloads chart" role="img"></canvas>
       </section>
     </div>
   </main>
 
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h3 id="modalTitle">Episode</h3>
+        <button type="button" class="btn icon-btn" data-close-modal aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
   <footer class="footer">
-    <span class="footer-version" id="footerVersion">v1.3.0</span> · Inspired by Seth Leedy's bash downloader · GRC / TWiT media endpoints
+    <span class="footer-version" id="footerVersion">v1.4.0</span> · Inspired by Seth Leedy's bash downloader
   </footer>
 
   <script src="/static/app.js"></script>

@@ -191,10 +191,19 @@ def missing_formats(
     return [fmt for fmt in expected if fmt not in entry.files]
 
 
+def storage_by_media(entries: list[EpisodeEntry]) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for entry in entries:
+        for media, finfo in entry.files.items():
+            totals[media] = totals.get(media, 0) + finfo.bytes
+    return totals
+
+
 def library_summary(
     download_dir: Path,
     latest_remote: int,
     expected_formats: list[str] | None = None,
+    disk_free_bytes: int | None = None,
 ) -> dict[str, Any]:
     entries = scan_library(download_dir)
     numbers = [e.number for e in entries]
@@ -217,11 +226,26 @@ def library_summary(
                     "filename": finfo.filename,
                 })
 
+    media_bytes = storage_by_media(entries)
+    sync_ok = None
+    if latest_remote and numbers:
+        sync_ok = max(numbers) >= latest_remote
+
+    disk_free_pct = None
+    if disk_free_bytes is not None and disk_free_bytes >= 0:
+        denom = total_bytes + disk_free_bytes
+        if denom > 0:
+            disk_free_pct = round((disk_free_bytes / denom) * 100, 1)
+
     return {
         "episode_count": len(entries),
         "total_bytes": total_bytes,
+        "storage_by_media": media_bytes,
+        "disk_free_bytes": disk_free_bytes,
+        "disk_free_pct": disk_free_pct,
         "latest_local": max(numbers) if numbers else None,
         "latest_remote": latest_remote,
+        "sync_ok": sync_ok,
         "missing_episodes": gaps[:200],
         "missing_episode_count": len(gaps),
         "missing_formats": missing_fmt_report[:100],

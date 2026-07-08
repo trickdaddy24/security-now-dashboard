@@ -6,9 +6,30 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Planned
+- Playwright E2E dashboard tests
 - Optional dashboard authentication for public deploys
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
+
+## [1.4.0] - 2026-07-08
+
+### Added
+- **Version badge** on top-right (readable high-contrast style)
+- **Episode picker** grid — click recent 30 to queue
+- **Per-job cancel**, drag-and-drop queue reorder, speed sparklines, ETA display
+- **Notify** toggle — browser notification when batch completes
+- **Light/dark theme** toggle (◐ button, persisted)
+- **Insights tab** — batch timeline, weekly downloads chart, GRC sync status
+- Library: sort/filter, inline audio player, transcript modal, show notes viewer
+- Storage breakdown by media type, disk free %, CSV export
+- `GET /api/insights`, `POST /api/jobs/{id}/cancel`, `POST /api/jobs/reorder`
+- `GET /api/library/export.csv`
+- PWA `manifest.json` + icon
+- `test_insights.py`, `test_dashboard_static.py`
+
+### Changed
+- GRC sync line on Downloads tab
+- Improved mobile layout for topbar and job list
 
 ## [1.3.0] - 2026-07-08
 
@@ -76,7 +97,8 @@ All notable changes to this project are documented here. Format follows
 - Docker image and `docker-compose.yml` with health check
 - Project documentation suite (README, ROADMAP, CONTRIBUTING, LICENSE)
 
-[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/trickdaddy24/security-now-dashboard/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.4.0
 [1.3.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.3.0
 [1.2.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.2.0
 [1.1.0]: https://github.com/trickdaddy24/security-now-dashboard/releases/tag/v1.1.0
