@@ -37,6 +37,8 @@ from grc_downloader.insights import batch_timeline, library_csv, weekly_download
 from grc_downloader.version import get_version
 from grc_downloader.heartbeat import run_heartbeat_loop
 from grc_downloader.log_tail import tail_log_events
+from grc_downloader.kodi_migrate import migrate_filenames_to_kodi
+from grc_downloader.twit_thumbs import fetch_thumbs_for_library
 from grc_downloader.watcher import load_state, run_watcher_loop
 
 ROOT = Path(__file__).resolve().parent
@@ -241,6 +243,7 @@ async def get_config() -> dict[str, Any]:
         "parallel": CONFIG.parallel,
         "skip_existing": CONFIG.skip_existing,
         "filename_format": CONFIG.filename_format,
+        "fetch_thumbs": CONFIG.fetch_thumbs,
         "default_media": CONFIG.default_media,
         "min_free_mb": CONFIG.min_free_mb,
         "disk_free_bytes": free_bytes(CONFIG.download_dir),
@@ -585,6 +588,34 @@ async def fill_missing_transcripts() -> dict[str, Any]:
         dates=dates,
     )
     return {"ok": ok, "error": err or None, "episodes": episodes}
+
+
+class MigrateKodiRequest(BaseModel):
+    dry_run: bool = False
+
+
+@app.post("/api/library/migrate-kodi")
+async def migrate_kodi(req: MigrateKodiRequest) -> dict[str, Any]:
+    return await asyncio.to_thread(
+        migrate_filenames_to_kodi,
+        CONFIG.download_dir,
+        episode_folders=CONFIG.episode_folders,
+        dry_run=req.dry_run,
+    )
+
+
+class FetchThumbsRequest(BaseModel):
+    skip_existing: bool = True
+
+
+@app.post("/api/library/fetch-thumbs")
+async def fetch_thumbs(req: FetchThumbsRequest) -> dict[str, Any]:
+    result = await fetch_thumbs_for_library(
+        CONFIG.download_dir,
+        verify_ssl=CONFIG.verify_ssl,
+        skip_existing=req.skip_existing,
+    )
+    return result
 
 
 @app.post("/api/rss/rebuild")

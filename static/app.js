@@ -93,9 +93,6 @@ async function loadConfig() {
     if (cfg.version) setVersion(cfg.version);
     const parallel = document.querySelector('input[name="parallel"]');
     if (parallel && cfg.parallel) parallel.value = cfg.parallel;
-    const fmt = document.querySelector('select[name="filename_format"]');
-    if (fmt && cfg.filename_format) fmt.value = cfg.filename_format;
-
   } catch { /* ignore */ }
 }
 
@@ -262,7 +259,7 @@ function buildDownloadPayload(extra = {}) {
     media,
     parallel: Number(fd.get("parallel") || 2),
     skip_existing: fd.get("skip_existing") === "on",
-    filename_format: fd.get("filename_format") || "raw",
+    filename_format: "kodi",
     ...extra,
   };
   if (state.periodBatch) {
@@ -805,6 +802,40 @@ $("fillTranscriptsBtn")?.addEventListener("click", async () => {
   if (!data.ok) alert(data.error || "Failed");
   else if (!data.episodes?.length) alert(data.message || "None missing");
   else alert(`Queued ${data.episodes.length} transcript(s)`);
+});
+
+$("migrateKodiBtn")?.addEventListener("click", async () => {
+  if (!confirm("Rename all library files to Kodi/Plex layout (Security Now S2026E1086)?")) return;
+  const btn = $("migrateKodiBtn");
+  btn.disabled = true;
+  try {
+    const data = await (await fetch("/api/library/migrate-kodi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    })).json();
+    if (data.errors?.length) alert(`Done with errors:\n${data.errors.join("\n")}`);
+    else alert(`Renamed ${data.renamed_count ?? 0} file(s)`);
+    loadLibrary();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("fetchThumbsBtn")?.addEventListener("click", async () => {
+  const btn = $("fetchThumbsBtn");
+  btn.disabled = true;
+  try {
+    const data = await (await fetch("/api/library/fetch-thumbs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skip_existing: true }),
+    })).json();
+    if (data.errors?.length) alert(`Done with errors:\n${data.errors.join("\n")}`);
+    else alert(`Fetched ${data.fetched_count ?? 0} thumb(s), skipped ${data.skipped_count ?? 0}`);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // Search

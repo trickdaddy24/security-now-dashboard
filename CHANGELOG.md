@@ -10,6 +10,17 @@ All notable changes to this project are documented here. Format follows
 - Show notes PDF full-text search (pdftotext)
 - Compressed transcript cache for low-disk systems
 
+## [1.8.0] - 2026-07-08
+
+### Added
+- **TWiT episode art** — fetches per-episode thumbnails from TWiT RSS (`itunes:image`) and saves Plex/Kodi local art as `-thumb.jpg` and `-fanart.jpg` beside each video
+- **Library tools** — `POST /api/library/migrate-kodi` and `POST /api/library/fetch-thumbs`; dashboard buttons on Library tab
+- **`deploy/saltbox/migrate-kodi.sh`** — one-shot server rename + thumb fetch for existing Plex library
+
+### Changed
+- **Kodi-only filenames** — all downloads use `Security Now S{year}E{ep}.mp4` (video) and tagged variants for other media; filename format dropdown removed from UI
+- **Default config** — `SN_FILENAME_FORMAT=kodi`, `SN_FETCH_THUMBS=1`
+
 ## [1.7.0] - 2026-07-08
 
 ### Added

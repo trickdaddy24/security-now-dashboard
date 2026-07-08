@@ -104,14 +104,7 @@
             </div>
           </fieldset>
 
-          <label>
-            Filename format
-            <select name="filename_format">
-              <option value="raw">raw — sn-1086.mp3</option>
-              <option value="ordered">ordered — 1086 Title - date [tag].ext</option>
-              <option value="kodi">kodi — Security Now S2026E1086</option>
-            </select>
-          </label>
+          <input type="hidden" name="filename_format" value="kodi" />
 
           <div class="row">
             <label>
@@ -205,6 +198,8 @@
         <div class="actions">
           <button type="button" class="btn" id="refreshLibBtn">Refresh</button>
           <button type="button" class="btn" id="fillTranscriptsBtn">Missing transcripts</button>
+          <button type="button" class="btn" id="migrateKodiBtn">Rename to Kodi</button>
+          <button type="button" class="btn" id="fetchThumbsBtn">Fetch episode art</button>
           <a class="btn" id="exportCsvBtn" href="/api/library/export.csv" download>Export CSV</a>
         </div>
         <div class="rss-block">

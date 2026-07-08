@@ -29,6 +29,7 @@ from .models import DownloadJob, DownloadTask, JobStatus, MediaType
 from .logging_config import log_download_event
 from .parser import media_url
 from .paths import media_rel_path
+from .twit_thumbs import download_episode_art, thumb_paths_for_video
 
 log = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ class DownloadManager:
     ) -> list[DownloadTask]:
         titles = titles or {}
         dates = dates or {}
-        fmt = filename_format or self.config.filename_format
+        fmt = "kodi"
         tasks: list[DownloadTask] = []
         for ep in episodes:
             for media in media_types:
@@ -276,7 +277,7 @@ class DownloadManager:
                     episodes,
                     [m.value for m in media_types],
                     parallel=par,
-                    filename_format=filename_format or self.config.filename_format,
+                    filename_format="kodi",
                 ),
             )
 
@@ -383,6 +384,17 @@ class DownloadManager:
 
         try:
             await asyncio.gather(*(worker(jid) for jid in pending))
+            if self.config.fetch_thumbs:
+                for jid in self._order:
+                    job = self.jobs[jid]
+                    if job.status != JobStatus.SKIPPED or job.media not in _VIDEO_MEDIA:
+                        continue
+                    dest = self.download_dir / job.filename
+                    if not dest.is_file():
+                        continue
+                    thumb_path, _ = thumb_paths_for_video(dest)
+                    if not thumb_path.is_file():
+                        await self._ensure_video_thumb(job, dest)
         finally:
             self._running = False
             self._save_batch_state()
@@ -595,6 +607,16 @@ class DownloadManager:
         if last_exc:
             raise last_exc
 
+    async def _ensure_video_thumb(self, job: DownloadJob, dest: Path) -> None:
+        if not self.config.fetch_thumbs or job.media not in _VIDEO_MEDIA:
+            return
+        await download_episode_art(
+            self.download_dir,
+            job.episode,
+            dest,
+            verify_ssl=self.config.verify_ssl,
+        )
+
     async def _finish_job(self, job: DownloadJob, dest: Path) -> None:
         update_sidecar(
             self.download_dir,
@@ -620,6 +642,7 @@ class DownloadManager:
         await self._emit("job_updated", {"job": job.to_dict()})
         if self._batch_id:
             append_history(self.history_path, job_finished_record(self._batch_id, job.to_dict()))
+        await self._ensure_video_thumb(job, dest)
         if self.config.telegram_on_job_complete:
             size = dest.stat().st_size if dest.is_file() else 0
             size_mb = size / (1024 * 1024)

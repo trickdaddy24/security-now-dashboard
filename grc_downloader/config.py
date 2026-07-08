@@ -13,7 +13,7 @@ class AppConfig:
     download_dir: Path = field(default_factory=lambda: ROOT / "downloads")
     parallel: int = 2
     skip_existing: bool = True
-    filename_format: str = "raw"
+    filename_format: str = "kodi"
     default_media: list[str] = field(default_factory=lambda: ["audio_twit"])
     verify_ssl: bool = True
     min_free_mb: int = 500
@@ -42,6 +42,7 @@ class AppConfig:
     part_cleanup_days: int = 7
     require_download_lock: bool = True
     episode_folders: bool = True
+    fetch_thumbs: bool = True
 
     def resolve_history_path(self) -> Path:
         if self.history_file:
@@ -141,6 +142,8 @@ def load_config() -> AppConfig:
             cfg.log_level = str(ops["log_level"])
         if "part_cleanup_days" in ops:
             cfg.part_cleanup_days = int(ops["part_cleanup_days"])
+        if "fetch_thumbs" in ops:
+            cfg.fetch_thumbs = bool(ops["fetch_thumbs"])
         break
 
     if env := os.getenv("SN_DOWNLOAD_DIR"):
@@ -207,6 +210,8 @@ def load_config() -> AppConfig:
         cfg.require_download_lock = env.lower() not in ("0", "false", "no")
     if env := os.getenv("SN_EPISODE_FOLDERS"):
         cfg.episode_folders = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_FETCH_THUMBS"):
+        cfg.fetch_thumbs = env.lower() not in ("0", "false", "no")
     if env := os.getenv("SN_PUBLIC_URL"):
         if not cfg.rss_base_url:
             cfg.rss_base_url = env

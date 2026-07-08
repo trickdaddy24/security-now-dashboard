@@ -63,6 +63,10 @@ def test_filename_presets() -> None:
     kodi = build_filename(1086, MediaType.AUDIO_HQ, date_label="07 Jul 2026", fmt="kodi")
     assert kodi.startswith("Security Now S")
     assert "E1086" in kodi
+    kodi_video = build_filename(1086, MediaType.VIDEO_HD, date_label="07 Jul 2026", fmt="kodi")
+    assert kodi_video == "Security Now S2026E1086.mp4"
+    kodi_audio = build_filename(1086, MediaType.AUDIO_TWIT, date_label="07 Jul 2026", fmt="kodi")
+    assert "[audio-twit]" in kodi_audio
 
 
 def test_sanitize_component() -> None:

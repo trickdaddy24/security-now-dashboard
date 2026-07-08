@@ -84,6 +84,10 @@ def build_filename(
 
     if preset == "kodi":
         year = _episode_year(date_label, episode)
-        return f"{SHOW_NAME} S{year}E{episode:04d} [{tag}].{ext}"
+        stem = f"{SHOW_NAME} S{year}E{episode:04d}"
+        # Video: clean name for Plex/Kodi (art saved as -thumb.jpg / -fanart.jpg)
+        if media in (MediaType.VIDEO_HD, MediaType.VIDEO_HQ, MediaType.VIDEO_LQ):
+            return f"{stem}.{ext}"
+        return f"{stem} [{tag}].{ext}"
 
     return f"sn-{ep4}-{tag}.{ext}"

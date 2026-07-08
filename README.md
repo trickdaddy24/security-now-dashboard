@@ -197,7 +197,7 @@ Example `config.toml`:
 dir = "./downloads"
 parallel = 2
 skip_existing = true
-filename_format = "raw"   # raw | ordered | kodi
+filename_format = "kodi"   # Plex/Kodi naming (dashboard always uses kodi)
 min_free_mb = 500
 
 [media]
@@ -210,7 +210,8 @@ default = ["audio_twit"]
 |---|---|---|---|
 | `SN_DOWNLOAD_DIR` | No | `./downloads` | Directory for downloaded episode files |
 | `SN_PARALLEL` | No | `2` | Default parallel download count |
-| `SN_FILENAME_FORMAT` | No | `raw` | `raw`, `ordered`, or `kodi` |
+| `SN_FILENAME_FORMAT` | No | `kodi` | Plex/Kodi naming preset (`kodi` recommended) |
+| `SN_FETCH_THUMBS` | No | `true` | Download TWiT episode thumbnails as `-thumb.jpg` / `-fanart.jpg` beside videos |
 | `SN_MIN_FREE_MB` | No | `500` | Minimum free disk MB before starting a batch |
 | `SN_VERIFY_SSL` | No | `true` | Set `false` to skip TLS verification |
 | `SN_HISTORY_FILE` | No | `<download_dir>/.sn-history.jsonl` | JSONL history path |
@@ -287,10 +288,11 @@ curl -X POST http://127.0.0.1:8787/api/download \
 
 1. **Episodes** — `latest`, `next`, `1086`, `1080:1086`, or `all`
 2. **Media types** — check one or more formats per batch (including TWiT video HD/HQ/LQ)
-3. **Filename format** — `raw`, `ordered`, or `kodi` naming preset
-4. **Parallel** — how many simultaneous downloads (default 2)
-5. **Skip existing** — leave checked to avoid re-downloading files already on disk
-6. **Retry failed** — re-queue only jobs that failed in the last batch (after crash or cancel)
+3. **Parallel** — how many simultaneous downloads (default 2)
+4. **Skip existing** — leave checked to avoid re-downloading files already on disk
+5. **Retry failed** — re-queue only jobs that failed in the last batch (after crash or cancel)
+
+**Library tab:** use **Rename to Kodi** to migrate legacy `sn-XXXX` filenames, and **Fetch episode art** to pull TWiT thumbnails for Plex fanart.
 
 The status pill turns **Live** when the WebSocket connects. Disk free space is shown under the form. Progress updates stream automatically — no refresh needed.
 
@@ -306,7 +308,7 @@ Mapped from the original bash script:
 | (no flags — next ep) | `episodes: "next"` |
 | `-ahq` / `-alq` | `audio_hq` / `audio_lq` |
 | `-vhd` / `-vhq` / `-vlq` | `video_hd` / `video_hq` / `video_lq` |
-| `-ff ordered` / `-ff kodi` | `filename_format: "ordered"` / `"kodi"` |
+| `-ff kodi` | `filename_format: "kodi"` (dashboard default) |
 | `-eptxt` / `-eppdf` / `-ephtml` / `-epnotes` | transcript + show_notes media types |
 | `-pd 4` | `parallel: 4` |
 | `-d /path` | `SN_DOWNLOAD_DIR` env var |

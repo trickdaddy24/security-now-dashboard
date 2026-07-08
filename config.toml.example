@@ -4,8 +4,8 @@
 dir = "./downloads"
 parallel = 2
 skip_existing = true
-# raw | ordered | kodi
-filename_format = "raw"
+# kodi is the only supported dashboard format (Plex/Kodi naming)
+filename_format = "kodi"
 min_free_mb = 500
 verify_ssl = true
 
@@ -52,4 +52,5 @@ interval_hours = 6
 log_json = false
 log_level = "INFO"
 part_cleanup_days = 7
+fetch_thumbs = true
 # require_download_lock = true
