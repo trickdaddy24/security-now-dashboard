@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .integrations import notify_discord, post_webhook
+from .integrations import notify_discord, notify_telegram, post_webhook
 from .models import MediaType
 from .parser import fetch_catalog
 
@@ -52,6 +52,8 @@ async def run_watcher_loop(
     verify_ssl: bool = True,
     notifier_url: str | None = None,
     discord_url: str | None = None,
+    telegram_token: str | None = None,
+    telegram_chat_id: str | None = None,
     default_media: list[str] | None = None,
 ) -> None:
     interval = max(0.5, interval_hours) * 3600.0
@@ -70,6 +72,7 @@ async def run_watcher_loop(
                 msg = f"Security Now episode #{latest} queued (was #{last_seen})"
                 await post_webhook(notifier_url, {"event": "new_episode", "episode": latest, "message": msg}, verify_ssl=verify_ssl)
                 await notify_discord(discord_url, title="Security Now — new episode", description=msg, verify_ssl=verify_ssl)
+                await notify_telegram(telegram_token, telegram_chat_id, msg, verify_ssl=verify_ssl)
                 if not ok:
                     log.warning("Failed to enqueue episode #%s", latest)
             elif latest > last_seen:

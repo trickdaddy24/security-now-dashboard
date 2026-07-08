@@ -15,7 +15,7 @@ import httpx
 from .config import AppConfig
 from .disk import check_disk_space, free_bytes
 from .filenames import build_filename
-from .integrations import notify_discord, post_webhook, write_plex_hint
+from .integrations import notify_discord, notify_telegram, post_webhook, write_plex_hint
 from .lockfile import DownloadDirLock
 from .history import (
     append_history,
@@ -432,6 +432,12 @@ class DownloadManager:
             description=msg,
             verify_ssl=self.config.verify_ssl,
         )
+        await notify_telegram(
+            self.config.telegram_bot_token,
+            self.config.telegram_chat_id,
+            f"Security Now — batch finished\n{msg}",
+            verify_ssl=self.config.verify_ssl,
+        )
         if completed > 0:
             write_plex_hint(
                 self.download_dir,
@@ -601,6 +607,33 @@ class DownloadManager:
             file_path=dest,
             episode_folders=self.config.episode_folders,
         )
+        log_download_event(
+            log,
+            logging.INFO,
+            "job_completed",
+            batch_id=self._batch_id,
+            job_id=job.id,
+            episode=job.episode,
+            media=job.media.value,
+            job_filename=job.filename,
+        )
         await self._emit("job_updated", {"job": job.to_dict()})
         if self._batch_id:
             append_history(self.history_path, job_finished_record(self._batch_id, job.to_dict()))
+        if self.config.telegram_on_job_complete:
+            size = dest.stat().st_size if dest.is_file() else 0
+            size_mb = size / (1024 * 1024)
+            title = job.title or job.filename
+            asyncio.create_task(
+                notify_telegram(
+                    self.config.telegram_bot_token,
+                    self.config.telegram_chat_id,
+                    (
+                        f"✅ Security Now download complete\n"
+                        f"EP {job.episode} · {job.media.value}\n"
+                        f"{title}\n"
+                        f"{job.filename} ({size_mb:.1f} MB)"
+                    ),
+                    verify_ssl=self.config.verify_ssl,
+                )
+            )

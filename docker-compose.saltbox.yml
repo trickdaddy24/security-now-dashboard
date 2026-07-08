@@ -30,6 +30,10 @@ services:
       # - SN_API_KEY=
       # - SN_NOTIFIER_WEBHOOK=
       # - SN_DISCORD_WEBHOOK=
+      # - SN_TELEGRAM_BOT_TOKEN=
+      # - SN_TELEGRAM_CHAT_ID=
+      # - SN_TELEGRAM_ON_JOB_COMPLETE=1
+      # - SN_HEARTBEAT_INTERVAL_HOURS=6
       # - SN_PUBLIC_URL=https://sn.example.com
     volumes:
       - /path/on/host/security-now:/data/downloads

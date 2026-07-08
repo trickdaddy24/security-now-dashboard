@@ -28,12 +28,15 @@
         <span class="theme-picker-label">Theme</span>
         <select id="themeSelect" class="theme-select" aria-label="Color theme">
           <option value="dark">Terminal</option>
-          <option value="light">Daylight</option>
           <option value="usa">USA ’26</option>
+          <option value="argentina">Argentina</option>
           <option value="mexico">México ’26</option>
           <option value="canada">Canada ’26</option>
           <option value="brazil">Brazil</option>
-          <option value="argentina">Argentina</option>
+          <option value="france">France</option>
+          <option value="germany">Germany</option>
+          <option value="england">England</option>
+          <option value="spain">Spain</option>
         </select>
       </label>
       <label class="notify-toggle" title="Browser notification when batch completes">
@@ -132,6 +135,17 @@
 
         <div class="job-list" id="jobList" role="list" aria-label="Download jobs">
           <p class="empty">No jobs yet. Start a batch or click an episode above.</p>
+        </div>
+
+        <div class="event-log-panel">
+          <div class="event-log-head">
+            <h3>Event log</h3>
+            <button type="button" class="btn tiny" id="refreshLogsBtn" aria-label="Refresh event log">Refresh</button>
+          </div>
+          <p class="muted event-log-meta" id="eventLogMeta">Loading…</p>
+          <div class="event-log" id="eventLog" role="log" aria-live="polite" aria-label="Application event log">
+            <p class="empty">No log events yet.</p>
+          </div>
         </div>
       </section>
     </div>

@@ -32,6 +32,10 @@ class AppConfig:
     watcher_interval_hours: float = 6.0
     notifier_webhook_url: str | None = None
     discord_webhook_url: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    telegram_on_job_complete: bool = True
+    heartbeat_interval_hours: float = 6.0
     log_json: bool = False
     log_level: str = "INFO"
     log_file: Path | None = None
@@ -114,7 +118,23 @@ def load_config() -> AppConfig:
             cfg.notifier_webhook_url = str(watch["notifier_webhook"])
         if watch.get("discord_webhook"):
             cfg.discord_webhook_url = str(watch["discord_webhook"])
+        if watch.get("telegram_bot_token"):
+            cfg.telegram_bot_token = str(watch["telegram_bot_token"])
+        if watch.get("telegram_chat_id"):
+            cfg.telegram_chat_id = str(watch["telegram_chat_id"])
+        if "telegram_on_job_complete" in watch:
+            cfg.telegram_on_job_complete = bool(watch["telegram_on_job_complete"])
+        if "heartbeat_interval_hours" in watch:
+            cfg.heartbeat_interval_hours = float(watch["heartbeat_interval_hours"])
         ops = data.get("ops", {})
+        if ops.get("telegram_bot_token"):
+            cfg.telegram_bot_token = str(ops["telegram_bot_token"])
+        if ops.get("telegram_chat_id"):
+            cfg.telegram_chat_id = str(ops["telegram_chat_id"])
+        if "telegram_on_job_complete" in ops:
+            cfg.telegram_on_job_complete = bool(ops["telegram_on_job_complete"])
+        if "heartbeat_interval_hours" in ops:
+            cfg.heartbeat_interval_hours = float(ops["heartbeat_interval_hours"])
         if "log_json" in ops:
             cfg.log_json = bool(ops["log_json"])
         if ops.get("log_level"):
@@ -167,6 +187,14 @@ def load_config() -> AppConfig:
         cfg.notifier_webhook_url = env
     if env := os.getenv("SN_DISCORD_WEBHOOK"):
         cfg.discord_webhook_url = env
+    if env := os.getenv("SN_TELEGRAM_BOT_TOKEN"):
+        cfg.telegram_bot_token = env
+    if env := os.getenv("SN_TELEGRAM_CHAT_ID"):
+        cfg.telegram_chat_id = env
+    if env := os.getenv("SN_TELEGRAM_ON_JOB_COMPLETE"):
+        cfg.telegram_on_job_complete = env.lower() not in ("0", "false", "no")
+    if env := os.getenv("SN_HEARTBEAT_INTERVAL_HOURS"):
+        cfg.heartbeat_interval_hours = float(env)
     if env := os.getenv("SN_LOG_JSON"):
         cfg.log_json = env.lower() in ("1", "true", "yes")
     if env := os.getenv("SN_LOG_LEVEL"):

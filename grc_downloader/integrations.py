@@ -38,6 +38,25 @@ async def notify_discord(
     )
 
 
+async def notify_telegram(
+    bot_token: str | None,
+    chat_id: str | None,
+    text: str,
+    *,
+    verify_ssl: bool = True,
+) -> bool:
+    if not bot_token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    try:
+        async with httpx.AsyncClient(timeout=15.0, verify=verify_ssl) as client:
+            resp = await client.post(url, json=payload)
+            return resp.status_code < 400
+    except Exception:
+        return False
+
+
 def write_plex_hint(download_dir: Path, message: str) -> Path:
     path = download_dir / ".plex-scan-hint.txt"
     path.write_text(message + "\n", encoding="utf-8")

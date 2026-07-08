@@ -2,6 +2,8 @@
 set -euo pipefail
 cd /opt/security-now-dashboard
 DISCORD="$(grep '^DISCORD_WEBHOOK_URL=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
+TG_TOKEN="$(grep '^TELEGRAM_BOT_TOKEN=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
+TG_CHAT="$(grep '^TELEGRAM_CHAT_ID=' ~/notifier/.env | cut -d= -f2- | tr -d "'")"
 if [[ -f .env.production ]] && grep -q '^SN_API_KEY=' .env.production; then
   API_KEY="$(grep '^SN_API_KEY=' .env.production | cut -d= -f2-)"
 else
@@ -21,6 +23,10 @@ SN_LOG_LEVEL=INFO
 SN_LOG_FILE=/var/log/security-now/app.log
 SN_EPISODE_FOLDERS=1
 SN_DISCORD_WEBHOOK=${DISCORD}
+SN_TELEGRAM_BOT_TOKEN=${TG_TOKEN}
+SN_TELEGRAM_CHAT_ID=${TG_CHAT}
+SN_TELEGRAM_ON_JOB_COMPLETE=1
+SN_HEARTBEAT_INTERVAL_HOURS=6
 EOF
 chmod 600 .env.production
 mkdir -p data/downloads

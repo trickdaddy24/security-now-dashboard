@@ -245,6 +245,146 @@
   --modal-backdrop: rgba(12, 26, 46, 0.45);
 }
 
+/* France (bleu, blanc, rouge) */
+[data-theme="france"] {
+  --bg: #e8eef8;
+  --panel: #ffffff;
+  --panel-edge: #8aa0c8;
+  --surface: #f3f6fc;
+  --surface-deep: #c5d4ec;
+  --text: #0c1830;
+  --muted: #2a4068;
+  --green: #002395;
+  --green-dim: #001a6e;
+  --amber: #ed2939;
+  --red: #ed2939;
+  --cyan: #4a68a8;
+  --topbar-bg: rgba(255, 255, 255, 0.95);
+  --mark-bg: #002395;
+  --mark-fg: #ffffff;
+  --badge-fg: #ffffff;
+  --badge-bg: #ed2939;
+  --badge-border: #002395;
+  --btn-primary-from: #002395;
+  --btn-primary-to: #1a3faa;
+  --btn-primary-text: #ffffff;
+  --glow-color: rgba(0, 35, 149, 0.12);
+  --border-subtle: rgba(42, 64, 104, 0.2);
+  --accent-surface: rgba(0, 35, 149, 0.1);
+  --accent-border: rgba(237, 41, 57, 0.3);
+  --accent-focus: rgba(0, 35, 149, 0.2);
+  --highlight-bg: rgba(237, 41, 57, 0.16);
+  --job-running-border: rgba(0, 35, 149, 0.5);
+  --job-failed-border: rgba(237, 41, 57, 0.45);
+  --scanline-opacity: 0.03;
+  --modal-backdrop: rgba(12, 24, 48, 0.5);
+}
+
+/* Germany (schwarz, rot, gold) */
+[data-theme="germany"] {
+  --bg: #ece8e0;
+  --panel: #ffffff;
+  --panel-edge: #9a9080;
+  --surface: #f5f2ec;
+  --surface-deep: #d4ccc0;
+  --text: #12100c;
+  --muted: #3d3830;
+  --green: #dd0000;
+  --green-dim: #a80000;
+  --amber: #ffce00;
+  --red: #dd0000;
+  --cyan: #5c5448;
+  --topbar-bg: rgba(255, 255, 255, 0.95);
+  --mark-bg: #12100c;
+  --mark-fg: #ffce00;
+  --badge-fg: #12100c;
+  --badge-bg: #ffce00;
+  --badge-border: #dd0000;
+  --btn-primary-from: #a80000;
+  --btn-primary-to: #dd0000;
+  --btn-primary-text: #ffffff;
+  --glow-color: rgba(221, 0, 0, 0.1);
+  --border-subtle: rgba(61, 56, 48, 0.2);
+  --accent-surface: rgba(255, 206, 0, 0.2);
+  --accent-border: rgba(221, 0, 0, 0.32);
+  --accent-focus: rgba(221, 0, 0, 0.18);
+  --highlight-bg: rgba(255, 206, 0, 0.35);
+  --job-running-border: rgba(221, 0, 0, 0.45);
+  --job-failed-border: rgba(168, 0, 0, 0.5);
+  --scanline-opacity: 0.03;
+  --modal-backdrop: rgba(18, 16, 12, 0.5);
+}
+
+/* England (St George — white, navy, red) */
+[data-theme="england"] {
+  --bg: #eef0f6;
+  --panel: #ffffff;
+  --panel-edge: #98a4bc;
+  --surface: #f6f7fb;
+  --surface-deep: #ccd4e4;
+  --text: #0c1428;
+  --muted: #2e3a58;
+  --green: #c8102e;
+  --green-dim: #9a0c24;
+  --amber: #1a2a5c;
+  --red: #c8102e;
+  --cyan: #3a5088;
+  --topbar-bg: rgba(255, 255, 255, 0.96);
+  --mark-bg: #c8102e;
+  --mark-fg: #ffffff;
+  --badge-fg: #ffffff;
+  --badge-bg: #1a2a5c;
+  --badge-border: #c8102e;
+  --btn-primary-from: #c8102e;
+  --btn-primary-to: #e81838;
+  --btn-primary-text: #ffffff;
+  --glow-color: rgba(200, 16, 46, 0.1);
+  --border-subtle: rgba(46, 58, 88, 0.2);
+  --accent-surface: rgba(200, 16, 46, 0.08);
+  --accent-border: rgba(26, 42, 92, 0.28);
+  --accent-focus: rgba(200, 16, 46, 0.18);
+  --highlight-bg: rgba(200, 16, 46, 0.14);
+  --job-running-border: rgba(200, 16, 46, 0.45);
+  --job-failed-border: rgba(154, 12, 36, 0.5);
+  --scanline-opacity: 0.02;
+  --modal-backdrop: rgba(12, 20, 40, 0.5);
+}
+
+/* Spain (rojo, amarillo) */
+[data-theme="spain"] {
+  --bg: #f8ece8;
+  --panel: #fffaf8;
+  --panel-edge: #c09080;
+  --surface: #fdf4f0;
+  --surface-deep: #e8c8bc;
+  --text: #2a1008;
+  --muted: #5c3020;
+  --green: #c60b1e;
+  --green-dim: #960818;
+  --amber: #ffc400;
+  --red: #c60b1e;
+  --cyan: #8a4830;
+  --topbar-bg: rgba(255, 250, 248, 0.95);
+  --mark-bg: #c60b1e;
+  --mark-fg: #ffc400;
+  --badge-fg: #2a1008;
+  --badge-bg: #ffc400;
+  --badge-border: #c60b1e;
+  --btn-primary-from: #c60b1e;
+  --btn-primary-to: #e01830;
+  --btn-primary-text: #ffffff;
+  --glow-color: rgba(198, 11, 30, 0.12);
+  --border-subtle: rgba(92, 48, 32, 0.2);
+  --accent-surface: rgba(255, 196, 0, 0.22);
+  --accent-border: rgba(198, 11, 30, 0.32);
+  --accent-focus: rgba(198, 11, 30, 0.2);
+  --highlight-bg: rgba(255, 196, 0, 0.4);
+  --job-running-border: rgba(198, 11, 30, 0.5);
+  --job-failed-border: rgba(150, 8, 24, 0.45);
+  --scanline-opacity: 0.03;
+  --modal-backdrop: rgba(42, 16, 8, 0.45);
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -767,9 +907,77 @@ select {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: 62vh;
+  max-height: 42vh;
   overflow: auto;
   padding-right: 0.25rem;
+}
+
+.event-log-panel {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.85rem;
+}
+
+.event-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.event-log-head h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.event-log-meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 22vh;
+  overflow: auto;
+  font-size: 0.78rem;
+  background: var(--surface);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 4.5rem 3.2rem 1fr;
+  gap: 0.4rem 0.5rem;
+  align-items: start;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.log-row:last-child { border-bottom: none; }
+
+.log-ts { color: var(--muted); white-space: nowrap; }
+.log-level {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+.log-row.info .log-level { color: var(--cyan); }
+.log-row.warning .log-level { color: var(--amber); }
+.log-row.error .log-level { color: var(--red); }
+.log-msg { word-break: break-word; }
+.log-exc {
+  grid-column: 1 / -1;
+  color: var(--red);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
 }
 
 .job {

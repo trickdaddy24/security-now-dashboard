@@ -39,8 +39,8 @@ function esc(s) {
   })[c]);
 }
 
-// Theme — dark, daylight, + 5 FIFA ’26 country palettes
-const THEMES = ["dark", "light", "usa", "mexico", "canada", "brazil", "argentina"];
+// Theme — Terminal + FIFA ’26 country palettes (USA, Argentina + 7 others)
+const THEMES = ["dark", "usa", "argentina", "mexico", "canada", "brazil", "france", "germany", "england", "spain"];
 
 function applyTheme(theme) {
   const t = THEMES.includes(theme) ? theme : "dark";
@@ -297,14 +297,17 @@ function connectWs() {
       if (idx >= 0) state.snapshot.jobs[idx] = job;
       else state.snapshot.jobs.push(job);
       applySnapshot(state.snapshot);
+      if (job.status === "completed" || job.status === "failed") loadEventLog();
       return;
     }
     if (msg.event === "batch_finished" && state.snapshot) {
       applySnapshot(msg.data?.jobs ? msg.data : state.snapshot);
       maybeNotifyBatchDone(state.snapshot);
       loadCatalog();
+      loadEventLog();
       return;
     }
+
     if (msg.data?.jobs) applySnapshot(msg.data);
   };
 }
@@ -616,6 +619,57 @@ window.addEventListener("resize", () => {
   if ($("panel-insights")?.classList.contains("active")) loadInsights();
 });
 
+function formatLogTime(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toLocaleTimeString();
+}
+
+function renderEventLog(events) {
+  const box = $("eventLog");
+  if (!box) return;
+  if (!events?.length) {
+    box.innerHTML = '<p class="empty">No log events yet.</p>';
+    return;
+  }
+  box.innerHTML = events.map((ev) => {
+    const level = (ev.level || "INFO").toLowerCase();
+    const detail = [
+      ev.episode != null ? `ep ${ev.episode}` : "",
+      ev.media || "",
+      ev.job_filename || "",
+      ev.status_code != null ? `HTTP ${ev.status_code}` : "",
+    ].filter(Boolean).join(" · ");
+    const extra = ev.exception ? `<div class="log-exc">${esc(ev.exception)}</div>` : "";
+    return `
+      <div class="log-row ${level}">
+        <span class="log-ts">${esc(formatLogTime(ev.ts))}</span>
+        <span class="log-level">${esc(ev.level || "INFO")}</span>
+        <span class="log-msg">${esc(ev.message || "")}${detail ? ` <span class="muted">· ${esc(detail)}</span>` : ""}</span>
+        ${extra}
+      </div>`;
+  }).join("");
+}
+
+async function loadEventLog() {
+  const meta = $("eventLogMeta");
+  try {
+    const data = await (await fetch("/api/logs?limit=60")).json();
+    if (meta) {
+      const parts = [`${data.count ?? 0} events`];
+      if (data.log_file) parts.push(data.log_file);
+      meta.textContent = parts.join(" · ");
+    }
+    renderEventLog(data.events || []);
+  } catch {
+    if (meta) meta.textContent = "Log unavailable";
+    renderEventLog([]);
+  }
+}
+
+$("refreshLogsBtn")?.addEventListener("click", () => loadEventLog());
+setInterval(loadEventLog, 15000);
+
 loadConfig();
 loadCatalog();
 connectWs();
@@ -623,3 +677,4 @@ fetch("/api/status").then((r) => r.json()).then((snap) => {
   state.batchWasRunning = !!snap.running;
   applySnapshot(snap);
 });
+loadEventLog();

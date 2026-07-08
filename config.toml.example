@@ -43,6 +43,10 @@ enabled = false
 interval_hours = 6
 # notifier_webhook = "https://notifier.example/hooks/..."
 # discord_webhook = "https://discord.com/api/webhooks/..."
+# telegram_bot_token = "123456:ABC..."
+# telegram_chat_id = "987654321"
+# telegram_on_job_complete = true
+# heartbeat_interval_hours = 6
 
 [ops]
 log_json = false

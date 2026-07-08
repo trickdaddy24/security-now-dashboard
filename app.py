@@ -34,6 +34,8 @@ from grc_downloader.rss import FEED_NAMES, build_feeds, rss_status
 from grc_downloader.search import index_transcripts, search_index_status, search_transcripts
 from grc_downloader.insights import batch_timeline, library_csv, weekly_downloads
 from grc_downloader.version import get_version
+from grc_downloader.heartbeat import run_heartbeat_loop
+from grc_downloader.log_tail import tail_log_events
 from grc_downloader.watcher import load_state, run_watcher_loop
 
 ROOT = Path(__file__).resolve().parent
@@ -49,6 +51,7 @@ _manager: DownloadManager | None = None
 _rate_limiter = RateLimiter(max_per_minute=CONFIG.rate_limit_per_minute)
 _latest_episode: int = 0
 _watcher_task: asyncio.Task[None] | None = None
+_heartbeat_task: asyncio.Task[None] | None = None
 
 
 async def _broadcast(message: dict[str, Any]) -> None:
@@ -92,7 +95,7 @@ async def _watcher_enqueue(episode: int, media: list[str]) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global CONFIG, _rate_limiter, _watcher_task, _latest_episode
+    global CONFIG, _rate_limiter, _watcher_task, _heartbeat_task, _latest_episode
 
     CONFIG = load_config()
     get_manager().config = CONFIG
@@ -130,18 +133,43 @@ async def lifespan(app: FastAPI):
                 verify_ssl=CONFIG.verify_ssl,
                 notifier_url=CONFIG.notifier_webhook_url,
                 discord_url=CONFIG.discord_webhook_url,
+                telegram_token=CONFIG.telegram_bot_token,
+                telegram_chat_id=CONFIG.telegram_chat_id,
                 default_media=CONFIG.default_media,
+            )
+        )
+
+    def _heartbeat_status() -> dict[str, Any]:
+        mgr = get_manager()
+        return {
+            "download_dir": str(CONFIG.download_dir.resolve()),
+            "running": mgr._running,  # noqa: SLF001
+            "counts": mgr.snapshot().get("counts"),
+            "watcher_enabled": CONFIG.watcher_enabled,
+            "watcher_interval_hours": CONFIG.watcher_interval_hours,
+            "latest_episode": _latest_episode,
+        }
+
+    if CONFIG.telegram_bot_token and CONFIG.telegram_chat_id and CONFIG.heartbeat_interval_hours > 0:
+        _heartbeat_task = asyncio.create_task(
+            run_heartbeat_loop(
+                bot_token=CONFIG.telegram_bot_token,
+                chat_id=CONFIG.telegram_chat_id,
+                interval_hours=CONFIG.heartbeat_interval_hours,
+                verify_ssl=CONFIG.verify_ssl,
+                status_cb=_heartbeat_status,
             )
         )
 
     yield
 
-    if _watcher_task:
-        _watcher_task.cancel()
-        try:
-            await _watcher_task
-        except asyncio.CancelledError:
-            pass
+    for task in (_watcher_task, _heartbeat_task):
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="Security Now Dashboard", version=APP_VERSION, lifespan=lifespan)
@@ -204,6 +232,10 @@ async def get_config() -> dict[str, Any]:
         "rss_limit": CONFIG.rss_limit,
         "watcher_enabled": CONFIG.watcher_enabled,
         "dev_mode": CONFIG.dev_mode,
+        "telegram_enabled": bool(CONFIG.telegram_bot_token and CONFIG.telegram_chat_id),
+        "telegram_on_job_complete": CONFIG.telegram_on_job_complete,
+        "heartbeat_interval_hours": CONFIG.heartbeat_interval_hours,
+        "log_file": str(CONFIG.log_file) if CONFIG.log_file else None,
     }
 
 
@@ -257,6 +289,17 @@ async def status() -> dict[str, Any]:
 async def history(limit: int = 50) -> dict[str, Any]:
     mgr = get_manager()
     return {"events": read_recent(mgr.history_path, limit=limit)}
+
+
+@app.get("/api/logs")
+async def app_logs(limit: int = 80) -> dict[str, Any]:
+    events = tail_log_events(CONFIG.log_file, limit=min(limit, 200))
+    return {
+        "ok": True,
+        "log_file": str(CONFIG.log_file) if CONFIG.log_file else None,
+        "count": len(events),
+        "events": events,
+    }
 
 
 @app.get("/api/jobs/history")
