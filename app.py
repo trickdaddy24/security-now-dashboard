@@ -564,12 +564,12 @@ async def integrations_plex_hint() -> dict[str, Any]:
     return {"ok": True, "path": str(path)}
 
 
-@app.get("/media/{filename}")
-async def serve_media(filename: str) -> FileResponse:
-    if ".." in filename or "/" in filename or "\\" in filename:
+@app.get("/media/{file_path:path}")
+async def serve_media(file_path: str) -> FileResponse:
+    if ".." in file_path:
         raise HTTPException(status_code=404, detail="Not found")
     root = CONFIG.download_dir.resolve()
-    path = (CONFIG.download_dir / filename).resolve()
+    path = (CONFIG.download_dir / file_path).resolve()
     try:
         path.relative_to(root)
     except ValueError as exc:

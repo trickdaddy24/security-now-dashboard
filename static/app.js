@@ -20,6 +20,12 @@ function fmtBytes(n) {
   return `${v.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
 
+/** Episode files live in subfolders — encode each path segment for /media/… */
+function mediaUrl(filename) {
+  if (!filename) return "";
+  return "/media/" + filename.split("/").map((p) => encodeURIComponent(p)).join("/");
+}
+
 function setVersion(v) {
   const label = `v${v}`;
   if (versionBadge) versionBadge.textContent = label;
@@ -404,7 +410,7 @@ function renderLibraryTable() {
         <span>
           ${esc(e.title || "Untitled")}<br>
           <span class="muted">${(e.formats || []).join(" · ")}</span>
-          ${audio ? `<br><audio controls preload="none" src="/media/${encodeURIComponent(audio)}" class="mini-audio"></audio>` : ""}
+          ${audio ? `<br><audio controls preload="metadata" src="${mediaUrl(audio)}" class="mini-audio"></audio>` : ""}
           <div class="lib-actions">
             ${txt ? `<button type="button" class="btn tiny open-txt" data-file="${esc(txt)}" data-ep="${e.number}">Transcript</button>` : ""}
             ${notes ? `<button type="button" class="btn tiny open-notes" data-file="${esc(notes)}" data-ep="${e.number}">Notes</button>` : ""}
@@ -416,14 +422,14 @@ function renderLibraryTable() {
 
   table.querySelectorAll(".open-txt").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const res = await fetch(`/media/${encodeURIComponent(btn.dataset.file)}`);
+      const res = await fetch(mediaUrl(btn.dataset.file));
       const text = await res.text();
       openModal(`#${btn.dataset.ep} Transcript`, `<pre class="modal-pre">${esc(text.slice(0, 12000))}${text.length > 12000 ? "…" : ""}</pre>`);
     });
   });
   table.querySelectorAll(".open-notes").forEach((btn) => {
     btn.addEventListener("click", () => {
-      openModal(`#${btn.dataset.ep} Show notes`, `<p><a href="/media/${encodeURIComponent(btn.dataset.file)}" target="_blank" rel="noopener">Open PDF in new tab</a></p><iframe src="/media/${encodeURIComponent(btn.dataset.file)}" class="modal-pdf"></iframe>`);
+      openModal(`#${btn.dataset.ep} Show notes`, `<p><a href="${mediaUrl(btn.dataset.file)}" target="_blank" rel="noopener">Open PDF in new tab</a></p><iframe src="${mediaUrl(btn.dataset.file)}" class="modal-pdf"></iframe>`);
     });
   });
 }

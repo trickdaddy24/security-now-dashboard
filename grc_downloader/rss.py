@@ -25,8 +25,11 @@ TEXT_MEDIA = {"transcript_txt", "transcript_pdf", "transcript_html", "show_notes
 
 def _enclosure_url(download_dir: Path, filename: str, base_url: str | None) -> str:
     if base_url:
+        from urllib.parse import quote
+
         base = base_url.rstrip("/")
-        return f"{base}/media/{filename}"
+        rel = "/".join(quote(part, safe="") for part in filename.replace("\\", "/").split("/"))
+        return f"{base}/media/{rel}"
     return Path(download_dir / filename).resolve().as_uri()
 
 
