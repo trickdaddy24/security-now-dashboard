@@ -560,7 +560,7 @@ function drawWeeklyChart(weekly) {
   const h = rect.height;
   ctx.clearRect(0, 0, w, h);
   if (!weekly.length) {
-    ctx.fillStyle = "#6f8f7f";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6f8f7f";
     ctx.font = "12px monospace";
     ctx.fillText("No download history yet", 12, h / 2);
     return;
@@ -574,7 +574,7 @@ function drawWeeklyChart(weekly) {
     const y = h - 20 - bh;
     ctx.fillStyle = green;
     ctx.fillRect(x, y, barW, bh);
-    ctx.fillStyle = "#6f8f7f";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6f8f7f";
     ctx.font = "9px monospace";
     ctx.fillText(String(row.completed), x, y - 4);
   });
