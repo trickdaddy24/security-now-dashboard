@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security Now — Live Download Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SN</span>
+      <div>
+        <h1>Security Now</h1>
+        <p class="subtitle">Live download console · fork of <a href="https://github.com/sethleedy/GRC-SECURITY-NOW-PODCAST-DOWNLOAD-SCRIPT" target="_blank" rel="noopener">GRC-Downloader</a></p>
+      </div>
+    </div>
+    <div class="status-pill" id="connStatus">
+      <span class="dot"></span>
+      <span>Connecting…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel controls">
+      <h2>Launch batch</h2>
+      <form id="downloadForm">
+        <label>
+          Episodes
+          <input type="text" name="episodes" value="latest" placeholder="latest · next · 1086 · 1080:1086 · all" />
+        </label>
+
+        <fieldset class="media-grid">
+          <legend>Media types</legend>
+          <label><input type="checkbox" name="media" value="audio_hq" checked /> Audio HQ</label>
+          <label><input type="checkbox" name="media" value="audio_lq" /> Audio LQ</label>
+          <label><input type="checkbox" name="media" value="audio_twit" /> TWiT CDN</label>
+          <label><input type="checkbox" name="media" value="transcript_txt" /> Transcript .txt</label>
+          <label><input type="checkbox" name="media" value="transcript_pdf" /> Transcript .pdf</label>
+          <label><input type="checkbox" name="media" value="show_notes" /> Show notes</label>
+        </fieldset>
+
+        <div class="row">
+          <label>
+            Parallel
+            <input type="number" name="parallel" min="1" max="8" value="2" />
+          </label>
+          <label class="checkbox-inline">
+            <input type="checkbox" name="skip_existing" checked />
+            Skip existing files
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn primary" id="startBtn">Start downloads</button>
+          <button type="button" class="btn danger" id="cancelBtn">Cancel batch</button>
+        </div>
+      </form>
+
+      <div class="catalog" id="catalog">
+        <h3>Archive feed</h3>
+        <p class="muted">Loading GRC catalog…</p>
+      </div>
+    </section>
+
+    <section class="panel dashboard">
+      <div class="stats" id="stats">
+        <div class="stat"><span class="label">Active</span><span class="value" data-k="active">0</span></div>
+        <div class="stat"><span class="label">Queued</span><span class="value" data-k="queued">0</span></div>
+        <div class="stat"><span class="label">Done</span><span class="value" data-k="completed">0</span></div>
+        <div class="stat"><span class="label">Failed</span><span class="value warn" data-k="failed">0</span></div>
+        <div class="stat wide"><span class="label">Download folder</span><span class="value mono small" id="dlDir">—</span></div>
+      </div>
+
+      <div class="throughput">
+        <div class="throughput-label">Aggregate throughput</div>
+        <div class="throughput-value" id="throughput">0 B/s</div>
+      </div>
+
+      <div class="job-list" id="jobList">
+        <p class="empty">No jobs yet. Start a batch to watch downloads live.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Inspired by Seth Leedy's bash downloader · Real-time via WebSocket · GRC / TWiT media endpoints
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
