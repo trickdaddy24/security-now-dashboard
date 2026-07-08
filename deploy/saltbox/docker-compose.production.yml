@@ -4,7 +4,7 @@
 services:
   security-now-dashboard:
     container_name: security-now-dashboard
-    ports: []
+    ports: !reset null
     env_file:
       - .env.production
     read_only: true
@@ -22,26 +22,21 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: "saltbox"
-      # sn.e4z.xyz — HTTP → HTTPS redirect (no Authelia: e4z.xyz not in Authelia access_control)
+      # Redirect sn.e4z.xyz → sn.aaa.stunna.xyz (keep sn-health for uptime checks)
+      traefik.http.middlewares.sn-to-aaa.redirectregex.regex: "^https?://sn\\.e4z\\.xyz/(.*)"
+      traefik.http.middlewares.sn-to-aaa.redirectregex.replacement: "https://sn.aaa.stunna.xyz/$${1}"
+      traefik.http.middlewares.sn-to-aaa.redirectregex.permanent: "true"
+      # sn.e4z.xyz — HTTP → sn.aaa.stunna.xyz
       traefik.http.routers.sn-http.entrypoints: "web"
       traefik.http.routers.sn-http.rule: "Host(`sn.e4z.xyz`)"
-      traefik.http.routers.sn-http.middlewares: "globalHeaders@file,redirect-to-https@docker,robotHeaders@file"
+      traefik.http.routers.sn-http.middlewares: "globalHeaders@file,sn-to-aaa@docker,robotHeaders@file"
       traefik.http.routers.sn-http.priority: "20"
       traefik.http.routers.sn-http.service: "sn-http"
       traefik.http.services.sn-http.loadbalancer.server.port: "8787"
-      # sn.e4z.xyz — HTTPS (app-level basic auth via SN_AUTH_* in .env.production)
+      # sn.e4z.xyz — HTTPS → sn.aaa.stunna.xyz
       traefik.http.routers.sn.entrypoints: "websecure"
       traefik.http.routers.sn.rule: "Host(`sn.e4z.xyz`)"
-      traefik.http.routers.sn.middlewares: "globalHeaders@file,secureHeaders@file,robotHeaders@file"
-      # Public monitoring — no auth (Uptime Kuma / Prometheus)
-      traefik.http.routers.sn-health.entrypoints: "websecure"
-      traefik.http.routers.sn-health.rule: "Host(`sn.e4z.xyz`) && (Path(`/health`) || Path(`/api/health`) || Path(`/metrics`))"
-      traefik.http.routers.sn-health.priority: "30"
-      traefik.http.routers.sn-health.service: "sn"
-      traefik.http.routers.sn-health.tls.certresolver: "cfdns"
-      traefik.http.routers.sn-health.tls.domains[0].main: "e4z.xyz"
-      traefik.http.routers.sn-health.tls.domains[0].sans: "*.e4z.xyz"
-      traefik.http.routers.sn-health.tls.options: "securetls@file"
+      traefik.http.routers.sn.middlewares: "globalHeaders@file,sn-to-aaa@docker,robotHeaders@file"
       traefik.http.routers.sn.priority: "20"
       traefik.http.routers.sn.service: "sn"
       traefik.http.routers.sn.tls.certresolver: "cfdns"
@@ -49,14 +44,23 @@ services:
       traefik.http.routers.sn.tls.domains[0].sans: "*.e4z.xyz"
       traefik.http.routers.sn.tls.options: "securetls@file"
       traefik.http.services.sn.loadbalancer.server.port: "8787"
-      # sn.aaa.stunna.xyz — HTTP → HTTPS redirect (backup URL, same Saltbox cert as heimdall)
+      # sn.e4z.xyz — public health/metrics only (Uptime Kuma / Prometheus)
+      traefik.http.routers.sn-health.entrypoints: "websecure"
+      traefik.http.routers.sn-health.rule: "Host(`sn.e4z.xyz`) && (Path(`/health`) || Path(`/api/health`) || Path(`/metrics`))"
+      traefik.http.routers.sn-health.priority: "30"
+      traefik.http.routers.sn-health.service: "sn-health"
+      traefik.http.routers.sn-health.tls.certresolver: "cfdns"
+      traefik.http.routers.sn-health.tls.domains[0].main: "e4z.xyz"
+      traefik.http.routers.sn-health.tls.domains[0].sans: "*.e4z.xyz"
+      traefik.http.routers.sn-health.tls.options: "securetls@file"
+      traefik.http.services.sn-health.loadbalancer.server.port: "8787"
+      # sn.aaa.stunna.xyz — primary URL (Authelia SSO, same as heimdall)
       traefik.http.routers.sn-aaa-http.entrypoints: "web"
       traefik.http.routers.sn-aaa-http.rule: "Host(`sn.aaa.stunna.xyz`)"
       traefik.http.routers.sn-aaa-http.middlewares: "globalHeaders@file,redirect-to-https@docker,robotHeaders@file,authelia@docker"
       traefik.http.routers.sn-aaa-http.priority: "20"
       traefik.http.routers.sn-aaa-http.service: "sn-aaa-http"
       traefik.http.services.sn-aaa-http.loadbalancer.server.port: "8787"
-      # sn.aaa.stunna.xyz — HTTPS
       traefik.http.routers.sn-aaa.entrypoints: "websecure"
       traefik.http.routers.sn-aaa.rule: "Host(`sn.aaa.stunna.xyz`)"
       traefik.http.routers.sn-aaa.middlewares: "globalHeaders@file,secureHeaders@file,robotHeaders@file,authelia@docker"
@@ -67,6 +71,16 @@ services:
       traefik.http.routers.sn-aaa.tls.domains[0].sans: "*.aaa.stunna.xyz"
       traefik.http.routers.sn-aaa.tls.options: "securetls@file"
       traefik.http.services.sn-aaa.loadbalancer.server.port: "8787"
+      # sn.aaa.stunna.xyz — public health (optional monitor on primary host)
+      traefik.http.routers.sn-aaa-health.entrypoints: "websecure"
+      traefik.http.routers.sn-aaa-health.rule: "Host(`sn.aaa.stunna.xyz`) && (Path(`/health`) || Path(`/api/health`) || Path(`/metrics`))"
+      traefik.http.routers.sn-aaa-health.priority: "30"
+      traefik.http.routers.sn-aaa-health.service: "sn-aaa-health"
+      traefik.http.routers.sn-aaa-health.tls.certresolver: "cfdns"
+      traefik.http.routers.sn-aaa-health.tls.domains[0].main: "aaa.stunna.xyz"
+      traefik.http.routers.sn-aaa-health.tls.domains[0].sans: "*.aaa.stunna.xyz"
+      traefik.http.routers.sn-aaa-health.tls.options: "securetls@file"
+      traefik.http.services.sn-aaa-health.loadbalancer.server.port: "8787"
 
 networks:
   saltbox:

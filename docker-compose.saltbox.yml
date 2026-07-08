@@ -6,7 +6,7 @@
 
 services:
   security-now-dashboard:
-    ports: []
+    ports: !reset null
     networks:
       - saltbox
     read_only: true
